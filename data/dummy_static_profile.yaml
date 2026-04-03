@@ -1,0 +1,37 @@
+# this is a completely anonymized dummy data for testing and public repository display.
+# Replace with your actual details in 'static_profile.yaml' (you will have to create one).
+
+github_username: "octocat"
+showcase_repos:
+  - "Hello-World"
+  - "Spoon-Knife"
+
+name: "Alex Coder"
+phone: "+1 (555) 019-8372"
+email: "alex.coder@example.com"
+github: "https://github.com/octocat"
+linkedin: "https://linkedin.com/in/alexcoder"
+location: "San Francisco, CA"
+summary: "A passionate software engineering student specializing in backend architecture, API development, and cloud deployments. Open-source contributor and avid hackathon participant."
+
+education:
+  - school: "State University of Technology"
+    location: "San Francisco, CA"
+    degree: "B.S. in Computer Science"
+    dates: "2020 - 2024"
+
+experience:
+  - company: "Tech Innovations Inc."
+    location: "Remote"
+    title: "Software Engineering Intern"
+    dates: "May 2023 - August 2023"
+    bullets:
+      - "Developed RESTful APIs using Python and FastAPI, improving data retrieval speeds by 20\%."
+      - "Collaborated with the QA team to implement automated testing pipelines, reducing production bugs."
+
+projects: []
+
+technical_skills:
+  Languages: "Python, JavaScript, TypeScript, C++, SQL"
+  Frameworks & Libraries: "React, Node.js, Express, FastAPI, Tailwind CSS"
+  Tools & Platforms: "Docker, Git, AWS, Linux, GitHub Actions"

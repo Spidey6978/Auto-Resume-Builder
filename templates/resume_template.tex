@@ -1,0 +1,69 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+
+% Formatting for sections
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{1ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+\begin{document}
+\pagestyle{empty}
+
+% --- HEADER ---
+\begin{center}
+    {\huge \textbf{<< name >>}} \\ \vspace{2pt}
+    << phone >> | \href{mailto:<< email >>}{<< email >>} | \href{<< github >>}{GitHub} | \href{<< linkedin >>}{LinkedIn} \\
+    \vspace{2pt}
+    << location >>
+\end{center}
+
+% --- SUMMARY ---
+\section*{Summary}
+<< summary >>
+
+% --- EDUCATION ---
+\section*{Education}
+\noindent
+<% for edu in education %>
+\textbf{<< edu.school >>} \hfill << edu.location >> \\
+\textit{<< edu.degree >>} \hfill << edu.dates >> \\
+<% endfor %>
+
+% --- EXPERIENCE ---
+\section*{Experience}
+<% for job in experience %>
+\noindent
+\textbf{<< job.company >>} \hfill << job.location >> \\
+\textit{<< job.title >>} \hfill << job.dates >>
+\begin{itemize}[leftmargin=*, nosep]
+    <% for bullet in job.bullets %>
+    \item << bullet >>
+    <% endfor %>
+\end{itemize}
+\vspace{4pt}
+<% endfor %>
+
+% --- PROJECTS ---
+\section*{Projects}
+<% for proj in projects %>
+\noindent
+\textbf{<< proj.name >>} | \textit{<< proj.tech_stack >>} \hfill \href{<< proj.link >>}{Link}
+\begin{itemize}[leftmargin=*, nosep]
+    <% for bullet in proj.bullets %>
+    \item << bullet >>
+    <% endfor %>
+\end{itemize}
+\vspace{4pt}
+<% endfor %>
+
+% --- TECHNICAL SKILLS ---
+\section*{Technical Skills}
+\begin{itemize}[leftmargin=*, nosep]
+    <% for skill_category, skills in technical_skills.items() %>
+    \item \textbf{<< skill_category >>}: << skills >>
+    <% endfor %>
+\end{itemize}
+
+\end{document}

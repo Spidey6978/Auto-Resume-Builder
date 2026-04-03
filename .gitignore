@@ -1,0 +1,15 @@
+
+data/static_profile.yaml
+
+
+.env
+
+
+build/
+*.pdf
+
+
+
+pycache/
+*.py[cod]
+*$py.class
