@@ -33,5 +33,5 @@ projects: []
 
 technical_skills:
   Languages: "Python, JavaScript, TypeScript, C++, SQL"
-  Frameworks & Libraries: "React, Node.js, Express, FastAPI, Tailwind CSS"
-  Tools & Platforms: "Docker, Git, AWS, Linux, GitHub Actions"
+  Frameworks and Libraries: "React, Node.js, Express, FastAPI, Tailwind CSS"
+  Tools and Platforms: "Docker, Git, AWS, Linux, GitHub Actions"
