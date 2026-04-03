@@ -1,0 +1,56 @@
+name: Build and Compile Resume
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'data/**'
+      - 'src/**'
+      - 'templates/**'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch: 
+
+jobs:
+  build-resume:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Tectonic (LaTeX Compiler)
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate LaTeX file via Python
+        env:
+          # Pulls your Gemini key from GitHub Secrets
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 
+          # Built-in GitHub token to prevent API rate limits
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}     
+        run: |
+          # Create build directory just in case
+          mkdir -p build 
+          python src/main.py
+
+      - name: Compile PDF with Tectonic
+        run: tectonic build/resume.tex
+
+      - name: Upload PDF Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Automated_Resume
+          path: build/resume.pdf
+          retention-days: 90
