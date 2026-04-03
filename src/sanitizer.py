@@ -33,8 +33,8 @@ def sanitize_data(data):
     Recursively traverses dictionaries and lists to escape LaTeX characters in all strings.
     """
     if isinstance(data, dict):
-        # UPDATE: Now we sanitize the keys as well as the values!
-        return {escape_latex(str(key)): sanitize_data(value) for key, value in data.items()}
+        # We ONLY sanitize the values. Sanitizing keys breaks Jinja variable mapping!
+        return {key: sanitize_data(value) for key, value in data.items()}
     elif isinstance(data, list):
         return [sanitize_data(item) for item in data]
     elif isinstance(data, str):
