@@ -30,7 +30,7 @@ def compile_pdf(tex_path):
 def main():
     print("Starting Resume Build Process...")
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_path = os.path.join(base_dir, 'data', 'static_profile.yaml')
+    data_path = os.path.join(base_dir, 'data', 'dummy_static_profile.yaml')
     
     with open(data_path, 'r') as file:
         raw_data = yaml.safe_load(file)
