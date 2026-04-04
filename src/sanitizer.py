@@ -28,15 +28,15 @@ def escape_latex(text: str) -> str:
     # Replace the matched characters with their safe LaTeX equivalents
     return pattern.sub(lambda match: latex_special_chars[match.group(0)], text)
 
-def sanitize_data(data):
+def sanitize_for_latex(data):
     """
     Recursively traverses dictionaries and lists to escape LaTeX characters in all strings.
     """
     if isinstance(data, dict):
         # We ONLY sanitize the values. Sanitizing keys breaks Jinja variable mapping!
-        return {key: sanitize_data(value) for key, value in data.items()}
+        return {key: sanitize_for_latex(value) for key, value in data.items()}
     elif isinstance(data, list):
-        return [sanitize_data(item) for item in data]
+        return [sanitize_for_latex(item) for item in data]
     elif isinstance(data, str):
         return escape_latex(data)
     else:

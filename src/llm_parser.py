@@ -1,7 +1,7 @@
 import os
 import google.generativeai as genai
 
-def generate_bullets_from_readme(repo_name, readme_content):
+def generate_bullets_from_readme(repo_name, readme_content, is_umbrella):
     """
     Takes a raw README string and uses Gemini to generate ATS-friendly resume bullets.
     """
