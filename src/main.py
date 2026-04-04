@@ -2,6 +2,7 @@ import os
 import yaml
 import subprocess
 import time
+import argparse
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 from github_fetcher import fetch_github_projects, get_repo_data
@@ -14,34 +15,37 @@ load_dotenv()
 def compile_pdf(tex_path):
     """Compiles the generated .tex file into a PDF."""
     
-    # If this script is running inside GitHub Actions, we skip local compilation
-    # because the Action uses the 'setup-tectonic' step to compile instead.
     if os.getenv("GITHUB_ACTIONS") == "true":
         print("Running in CI/CD. Skipping local compilation; Action will handle it.")
         return
 
     print("Compiling PDF...")
     try:
-        # Runs pdflatex. -interaction=nonstopmode prevents it from hanging if there's a syntax error.
+        # Hardcoded to lualatex as requested for maximum compatibility with fontspec
         subprocess.run(
-            ['pdflatex', '-interaction=nonstopmode', '-output-directory', os.path.dirname(tex_path), tex_path],
+            ['lualatex', '-interaction=nonstopmode', '-output-directory', os.path.dirname(tex_path), tex_path],
             check=True,
             stdout=subprocess.DEVNULL
         )
         print("PDF generated successfully.")
     except FileNotFoundError:
-        print("Error: pdflatex not found. Please install a LaTeX distribution (like TeX Live) or use Tectonic.")
+        print("Error: lualatex not found. Please check your LaTeX installation.")
     except subprocess.CalledProcessError:
         print("Error: LaTeX compilation failed. Check the .log file in the build folder.")
 
 def main():
+    # --- COMMAND LINE ARGUMENTS ---
+    parser = argparse.ArgumentParser(description="Auto Resume Builder")
+    parser.add_argument('--mock-ai', action='store_true', help="Skip Gemini API calls and use placeholder bullets to test LaTeX formatting.")
+    args = parser.parse_args()
+
     print("Starting Resume Build Process...")
+    if args.mock_ai:
+        print("⚠️ MOCK AI MODE ENABLED: Bypassing Gemini API to save quota.")
+
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    # Prioritize the real user data
     data_path = os.path.join(base_dir, 'data', 'static_profile.yaml') 
     
-    # Fallback to dummy data if real profile doesn't exist yet (for public clones)
     if not os.path.exists(data_path):
         print("Real static_profile.yaml not found. Falling back to dummy data.")
         data_path = os.path.join(base_dir, 'data', 'dummy_static_profile.yaml')
@@ -66,16 +70,21 @@ def main():
                 combined_readme += f"\n--- {repo_name} ---\n{data.get('readme_content', '')}"
                 tech = data.get('tech_stack', "")
                 if tech and tech != "Various":
-                    # Split languages and add to a set to remove duplicates (e.g., Python from both frontend/backend)
                     combined_tech.update([t.strip() for t in tech.split(',')])
         
-        # Generate full-stack bullets
-        bullets = generate_bullets_from_readme(group['name'], combined_readme, is_umbrella=True)
-        time.sleep(4) # Rate limit pacing
+        # --- THE MOCK BYPASS ---
+        if args.mock_ai:
+            bullets = [
+                f"Simulated bullet point 1 for {group['name']} highlighting full-stack integration.",
+                "Simulated bullet point 2 demonstrating performance optimization and architecture."
+            ]
+        else:
+            bullets = generate_bullets_from_readme(group['name'], combined_readme, is_umbrella=True)
+            time.sleep(4) 
         
         all_projects.append({
             "name": group['name'],
-            "tech_stack": ", ".join(list(combined_tech)[:5]), # Keep max 5 languages so it fits on one line
+            "tech_stack": ", ".join(list(combined_tech)[:5]), 
             "link": f"https://github.com/{github_user}/{group['repos'][0]}",
             "bullets": bullets 
         })
@@ -85,10 +94,16 @@ def main():
     if showcase_names:
         repos = fetch_github_projects(github_user, showcase_names, github_token)
         for r in repos:
-            # Fallback to repo description if README is too short
-            content = r['readme_content'] if len(r.get('readme_content', '')) > 50 else r.get('description', '')
-            bullets = generate_bullets_from_readme(r['name'], content, is_umbrella=False)
-            time.sleep(4) # Rate limit pacing
+            # --- THE MOCK BYPASS ---
+            if args.mock_ai:
+                bullets = [
+                    f"Simulated bullet point 1 for {r['name']} focusing on technical features.",
+                    "Simulated bullet point 2 showing impact and clean code practices."
+                ]
+            else:
+                content = r['readme_content'] if len(r.get('readme_content', '')) > 50 else r.get('description', '')
+                bullets = generate_bullets_from_readme(r['name'], content, is_umbrella=False)
+                time.sleep(4)
             
             all_projects.append({
                 "name": r['name'],
@@ -97,31 +112,25 @@ def main():
                 "bullets": bullets
             })
 
-    # 3. Handle Manual Projects (Hardware, specific jobs, etc.) & Merge
+    # 3. Handle Manual Projects
     manual_projects = raw_data.get('projects', [])
     all_projects.extend(manual_projects)
 
-    # 4. Prepare and Sanitize the whole data structure
+    # 4. Prepare and Sanitize
     final_data = raw_data.copy()
     final_data['projects'] = all_projects
-    
-    
-    # We recursively escape LaTeX characters across the ENTIRE profile (summary, skills, bullets)
     safe_data = sanitize_data(final_data) 
 
     # 5. Render Template
     env = Environment(
         loader=FileSystemLoader(os.path.join(base_dir, 'templates')),
-        block_start_string='<%', block_end_string='%>',
-        variable_start_string='<<', variable_end_string='>>'
+        block_start_string='\\BLOCK{', block_end_string='}',
+        variable_start_string='\\VAR{', variable_end_string='}'
     )
-    
-    
     env.filters['escape_latex'] = escape_latex
     
     try:
         template = env.get_template('resume_template.tex')
-        
         rendered_resume = template.render(safe_data)
         
         build_dir = os.path.join(base_dir, 'build')

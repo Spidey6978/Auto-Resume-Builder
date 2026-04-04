@@ -1,69 +1,104 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[10pt,a4paper]{article}
+
+% Tight margins to ensure everything (even the Black Hole sim) fits on 1 page
 \usepackage[margin=0.5in]{geometry}
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{titlesec}
 
-% Formatting for sections
+% Reverting to the original section style: Uppercase with a horizontal rule
 \titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
-\titlespacing*{\section}{0pt}{1ex plus 1ex minus .2ex}{1ex plus .2ex}
+\titlespacing*{\section}{0pt}{1.2ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+
+% Clean links without distracting boxes
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=black
+}
+
+% --- JINJA DUMMY MACROS ---
+% These allow the template to compile safely in Overleaf before Python injects the data
+\providecommand{\VAR}[1]{}
+\providecommand{\BLOCK}[1]{}
 
 \begin{document}
 \pagestyle{empty}
 
 % --- HEADER ---
 \begin{center}
-    {\huge \textbf{<< name >>}} \\ \vspace{2pt}
-    << phone >> | \href{mailto:<< email >>}{<< email >>} | \href{<< github >>}{GitHub} | \href{<< linkedin >>}{LinkedIn} \\
-    \vspace{2pt}
-    << location >>
+    {\huge \textbf{\VAR{name}}} \\ \vspace{4pt}
+    \VAR{phone} | \href{mailto:\VAR{email}}{\VAR{email}} | \href{\VAR{github}}{GitHub} | \href{\VAR{linkedin}}{LinkedIn} | \VAR{location}
 \end{center}
+\vspace{2pt}
 
 % --- SUMMARY ---
 \section*{Summary}
-<< summary >>
+\VAR{summary}
+\vspace{2pt}
 
 % --- EDUCATION ---
 \section*{Education}
-\noindent
-<% for edu in education %>
-\textbf{<< edu.school >>} \hfill << edu.location >> \\
-\textit{<< edu.degree >>} \hfill << edu.dates >> \\
-<% endfor %>
+\BLOCK{for edu in education}
+\noindent \textbf{\VAR{edu.school}} \hfill \VAR{edu.location} \\
+\textit{\VAR{edu.degree}} \hfill \VAR{edu.dates}
+\vspace{2pt}
+\BLOCK{endfor}
+
+% --- HONORS & AWARDS ---
+\BLOCK{if awards and awards|length > 0}
+\section*{Honors \& Awards}
+\BLOCK{for award in awards}
+\noindent \textbf{\VAR{award.title}} --- \textit{\VAR{award.event}} \hfill \VAR{award.year}
+\BLOCK{if award.bullets and award.bullets|length > 0}
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
+    \BLOCK{for bullet in award.bullets}
+    \item \VAR{bullet}
+    \BLOCK{endfor}
+\end{itemize}
+\BLOCK{endif}
+\vspace{2pt}
+\BLOCK{endfor}
+\BLOCK{endif}
 
 % --- EXPERIENCE ---
 \section*{Experience}
-<% for job in experience %>
-\noindent
-\textbf{<< job.company >>} \hfill << job.location >> \\
-\textit{<< job.title >>} \hfill << job.dates >>
-\begin{itemize}[leftmargin=*, nosep]
-    <% for bullet in job.bullets %>
-    \item << bullet >>
-    <% endfor %>
+\BLOCK{for job in experience}
+\noindent \textbf{\VAR{job.company}} \hfill \VAR{job.location} \\
+\textit{\VAR{job.title}} \hfill \VAR{job.dates}
+\BLOCK{if job.bullets and job.bullets|length > 0}
+% Optimized padding: Not completely squished (like nosep), but tight enough to save space
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
+    \BLOCK{for bullet in job.bullets}
+    \item \VAR{bullet}
+    \BLOCK{endfor}
 \end{itemize}
-\vspace{4pt}
-<% endfor %>
+\BLOCK{endif}
+\vspace{2pt}
+\BLOCK{endfor}
 
 % --- PROJECTS ---
 \section*{Projects}
-<% for proj in projects %>
-\noindent
-\textbf{<< proj.name >>} | \textit{<< proj.tech_stack >>} \hfill \href{<< proj.link >>}{Link}
-\begin{itemize}[leftmargin=*, nosep]
-    <% for bullet in proj.bullets %>
-    \item << bullet >>
-    <% endfor %>
+\BLOCK{for proj in projects}
+\noindent \textbf{\VAR{proj.name}} | \textit{\VAR{proj.tech_stack}}
+\BLOCK{if proj.link and "http" in proj.link}\hfill \href{\VAR{proj.link}}{Link}\BLOCK{endif}
+
+\BLOCK{if proj.bullets and proj.bullets|length > 0}
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
+    \BLOCK{for bullet in proj.bullets}
+    \item \VAR{bullet}
+    \BLOCK{endfor}
 \end{itemize}
-\vspace{4pt}
-<% endfor %>
+\BLOCK{endif}
+\vspace{2pt}
+\BLOCK{endfor}
 
 % --- TECHNICAL SKILLS ---
 \section*{Technical Skills}
-\begin{itemize}[leftmargin=*, nosep]
-    <% for skill_category, skills in technical_skills.items() %>
-    \item \textbf{<< skill_category >>}: << skills >>
-    <% endfor %>
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt, parsep=0pt, topsep=2pt]
+    \BLOCK{for skill_category, skills in technical_skills.items()}
+    \item \textbf{\VAR{skill_category | escape_latex}}: \VAR{skills}
+    \BLOCK{endfor}
 \end{itemize}
 
 \end{document}
