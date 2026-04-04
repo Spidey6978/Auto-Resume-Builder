@@ -44,7 +44,7 @@ def main():
     # Fallback to dummy data if real profile doesn't exist yet (for public clones)
     if not os.path.exists(data_path):
         print("Real static_profile.yaml not found. Falling back to dummy data.")
-        data_path = os.path.join(base_dir, 'data', 'static_profile.yaml')
+        data_path = os.path.join(base_dir, 'data', 'dummy_static_profile.yaml')
 
     with open(data_path, 'r') as file:
         raw_data = yaml.safe_load(file)
@@ -105,7 +105,7 @@ def main():
     final_data = raw_data.copy()
     final_data['projects'] = all_projects
     
-    # 🚨 BOMB DEFUSED: The Global Sanitization
+    
     # We recursively escape LaTeX characters across the ENTIRE profile (summary, skills, bullets)
     safe_data = sanitize_data(final_data) 
 
@@ -116,12 +116,12 @@ def main():
         variable_start_string='<<', variable_end_string='>>'
     )
     
-    # 🚨 Inject our sanitizer directly into Jinja as a filter
+    
     env.filters['escape_latex'] = escape_latex
     
     try:
         template = env.get_template('resume_template.tex')
-        # Pass the sanitized data to the template, NOT the raw data
+        
         rendered_resume = template.render(safe_data)
         
         build_dir = os.path.join(base_dir, 'build')
