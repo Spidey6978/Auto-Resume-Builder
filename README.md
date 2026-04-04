@@ -1,71 +1,91 @@
 Auto Resume Builder 🚀
 
-An automated resume generation pipeline that uses Python, Jinja2, and LaTeX to build ATS-friendly resumes programmatically.
+An automated, ATS-friendly resume generation pipeline. This project dynamically fetches your pinned GitHub repositories, uses AI (Google Gemini) to generate professional bullet points from your README.md files, and compiles everything into a pristine PDF using LaTeX.
 
-This project aims to automate the tedious process of updating a resume by extracting dynamic content (like projects) from the GitHub API, utilizing an LLM to generate impact-driven bullet points, and compiling it directly into a pristine PDF using LaTeX.
+✨ Features
 
-🏗️ Architecture
+Dynamic Content: Automatically fetches tech stacks and repository data via the GitHub API.
 
-Templating: Jinja2 + LaTeX
+AI-Powered Impact: Uses Gemini 2.5 Flash to synthesize repository READMEs into strong, action-oriented resume bullets.
 
-Data Sources: GitHub API (for dynamic projects) + Local YAML (for static profile info)
+Umbrella Projects: Intelligently groups multi-repo projects (e.g., a decoupled frontend and backend) into a single full-stack resume entry.
 
-Compiler: Tectonic / pdflatex
+LaTeX Sanitization: Automatically escapes special characters (&, %, $, etc.) so your LaTeX compiler never crashes.
 
-🚀 Getting Started
+CI/CD Ready: Includes a GitHub Actions workflow to automatically compile and release your resume as a PDF artifact on every push.
+
+🚀 How to Use (Choose Your Path)
+
+You can run this project entirely in the cloud without installing anything, or you can set it up locally on your machine.
+
+Path A: The "Cloud-Only" Route (Easiest)
+
+Best if you don't want to install Python or LaTeX on your computer.
+
+Fork this repository to your own GitHub account.
+
+Go to your repository's Settings > Secrets and variables > Actions > New repository secret.
+
+Name: GEMINI_API_KEY
+
+Secret: (Paste your Gemini API key from Google AI Studio)
+
+In your browser, navigate to data/static_profile.example.yaml. Copy its contents.
+
+Create a new file in the data/ folder named static_profile.yaml, paste the contents, fill in your details, and commit the file.
+
+Go to the Actions tab. The workflow will automatically run, generate your resume, and provide a downloadable PDF in the Artifacts section!
+
+Path B: Local Setup & Compilation
+
+Best if you want to preview and test your resume rapidly on your own machine.
 
 1. Prerequisites
 
-Ensure you have Python 3.8+ installed, along with a LaTeX compiler (like texlive or tectonic).
+Python 3.8+
 
-2. Installation
+A LaTeX Compiler: * Windows: MiKTeX or TeX Live
 
-Clone the repository and install the required Python packages:
+macOS: MacTeX
+
+Linux: sudo apt-get install texlive-full
+
+2. Installation & Setup
+
+Clone the repository, install dependencies, and run our automated setup wizard:
 
 git clone [https://github.com/yourusername/auto-resume-builder.git](https://github.com/yourusername/auto-resume-builder.git)
 cd auto-resume-builder
 pip install -r requirements.txt
 
-
-3. Setup Your Profile Data
-
-For privacy reasons, personal data is not tracked in this repository. You need to create your own profile data file.
-
-Copy the provided example template:
-
-cp data/static_profile.example.yaml data/static_profile.yaml
+# Run the setup wizard to configure your API keys and profile template
+python setup.py
 
 
-Open data/static_profile.yaml and fill it in with your actual personal information, education, and static experience.
+The wizard will safely create your .env file and generate a static_profile.yaml file for you.
 
-(Note: data/static_profile.yaml is included in .gitignore so your personal details will never be accidentally committed to GitHub).
+3. Customize Your Profile
 
-4. Build the Resume
+Open data/static_profile.yaml and fill in your contact info, education, and skills.
+Configure your GitHub projects using the showcase_repos or grouped_repos sections.
 
-Run the orchestrator script to inject your data into the LaTeX template and sanitize it:
+4. Build and Compile
+
+Run the main orchestrator script:
 
 python src/main.py
 
 
-This will generate a build/resume.tex file.
+What happens when you run this?
 
-5. Compile to PDF
+The script fetches your repos from GitHub.
 
-Compile the generated .tex file into a PDF:
+Gemini reads the documentation and generates bullet points.
 
-pdflatex build/resume.tex
-# OR if using tectonic:
-# tectonic build/resume.tex
+All text is sanitized to make it LaTeX-safe.
 
+Jinja injects the data into templates/resume_template.tex.
 
-📝 Roadmap
+pdflatex compiles build/resume.tex into build/resume.pdf.
 
-[x] Basic Jinja -> LaTeX templating engine
-
-[x] LaTeX special character sanitization
-
-[ ] GitHub API integration to fetch pinned repositories
-
-[ ] LLM Integration (Gemini/OpenAI) to parse READMEs into bullet points
-
-[ ] GitHub Actions CI/CD pipeline for automated cloud building
+(Pro-tip: If you prefer editing layouts visually, you can copy the generated text inside build/resume.tex and paste it directly into an empty Overleaf project!)
