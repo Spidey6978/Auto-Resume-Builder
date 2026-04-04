@@ -28,16 +28,20 @@ def escape_latex(text: str) -> str:
     # Replace the matched characters with their safe LaTeX equivalents
     return pattern.sub(lambda match: latex_special_chars[match.group(0)], text)
 
-def sanitize_data(data):
+def sanitize_data(data, key_name=None):
     """
     Recursively traverses dictionaries and lists to escape LaTeX characters in all strings.
     """
+    # Keys that should NEVER be sanitized because they act as raw URLs in \href{}
+    do_not_escape_keys = {'link', 'github', 'linkedin', 'email'}
+    
     if isinstance(data, dict):
-        # We ONLY sanitize the values. Sanitizing keys breaks Jinja variable mapping!
-        return {key: sanitize_data(value) for key, value in data.items()}
+        return {key: sanitize_data(value, key) for key, value in data.items()}
     elif isinstance(data, list):
-        return [sanitize_data(item) for item in data]
+        return [sanitize_data(item, key_name) for item in data]
     elif isinstance(data, str):
+        if key_name in do_not_escape_keys:
+            return data
         return escape_latex(data)
     else:
         return data
