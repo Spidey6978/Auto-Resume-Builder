@@ -6,16 +6,23 @@ from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 from github_fetcher import fetch_github_projects, get_repo_data
 from llm_parser import generate_bullets_from_readme
-from sanitizer import sanitize_for_latex  # Renamed for clarity
+from sanitizer import sanitize_data, escape_latex
 
+# Load API keys from the .env file
 load_dotenv()
 
 def compile_pdf(tex_path):
     """Compiles the generated .tex file into a PDF."""
+    
+    # If this script is running inside GitHub Actions, we skip local compilation
+    # because the Action uses the 'setup-tectonic' step to compile instead.
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print("Running in CI/CD. Skipping local compilation; Action will handle it.")
+        return
+
     print("Compiling PDF...")
     try:
-        # Using pdflatex (requires TeX Live / MiKTeX installed)
-        # -interaction=nonstopmode ensures it doesn't hang on errors
+        # Runs pdflatex. -interaction=nonstopmode prevents it from hanging if there's a syntax error.
         subprocess.run(
             ['pdflatex', '-interaction=nonstopmode', '-output-directory', os.path.dirname(tex_path), tex_path],
             check=True,
@@ -23,15 +30,22 @@ def compile_pdf(tex_path):
         )
         print("PDF generated successfully.")
     except FileNotFoundError:
-        print("Error: pdflatex not found. Please install a LaTeX distribution.")
+        print("Error: pdflatex not found. Please install a LaTeX distribution (like TeX Live) or use Tectonic.")
     except subprocess.CalledProcessError:
         print("Error: LaTeX compilation failed. Check the .log file in the build folder.")
 
 def main():
     print("Starting Resume Build Process...")
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_path = os.path.join(base_dir, 'data', 'dummy_static_profile.yaml')
     
+    # Prioritize the real user data
+    data_path = os.path.join(base_dir, 'data', 'static_profile.yaml') 
+    
+    # Fallback to dummy data if real profile doesn't exist yet (for public clones)
+    if not os.path.exists(data_path):
+        print("Real static_profile.yaml not found. Falling back to dummy data.")
+        data_path = os.path.join(base_dir, 'data', 'static_profile.yaml')
+
     with open(data_path, 'r') as file:
         raw_data = yaml.safe_load(file)
 
@@ -40,9 +54,9 @@ def main():
     
     all_projects = []
 
-    # 1. Process Grouped Projects (Umbrella)
+    # 1. Process Grouped Projects (The "Umbrella" Feature)
     for group in raw_data.get('grouped_repos', []):
-        print(f"Processing Umbrella: {group['name']}...")
+        print(f"Processing Umbrella Project: {group['name']}...")
         combined_readme = ""
         combined_tech = set()
         
@@ -50,57 +64,50 @@ def main():
             data = get_repo_data(github_user, repo_name, github_token)
             if data:
                 combined_readme += f"\n--- {repo_name} ---\n{data.get('readme_content', '')}"
-                # Extract tech stack if available
                 tech = data.get('tech_stack', "")
                 if tech and tech != "Various":
+                    # Split languages and add to a set to remove duplicates (e.g., Python from both frontend/backend)
                     combined_tech.update([t.strip() for t in tech.split(',')])
         
-        # LLM Generation
+        # Generate full-stack bullets
         bullets = generate_bullets_from_readme(group['name'], combined_readme, is_umbrella=True)
-        
-        # Pacing the API to avoid 429 Rate Limit Error
-        time.sleep(4)
+        time.sleep(4) # Rate limit pacing
         
         all_projects.append({
             "name": group['name'],
-            "tech_stack": ", ".join(list(combined_tech)[:5]),
+            "tech_stack": ", ".join(list(combined_tech)[:5]), # Keep max 5 languages so it fits on one line
             "link": f"https://github.com/{github_user}/{group['repos'][0]}",
-            "bullets": [sanitize_for_latex(b) for b in bullets]
+            "bullets": bullets 
         })
 
     # 2. Process Individual Showcase Repos
     showcase_names = raw_data.get('showcase_repos', [])
     if showcase_names:
         repos = fetch_github_projects(github_user, showcase_names, github_token)
-        # Sort by most recent push if the data is available in r['updated_at']
         for r in repos:
+            # Fallback to repo description if README is too short
             content = r['readme_content'] if len(r.get('readme_content', '')) > 50 else r.get('description', '')
             bullets = generate_bullets_from_readme(r['name'], content, is_umbrella=False)
-            
-            # Pacing the API to avoid 429 Rate Limit Error
-            time.sleep(4)
+            time.sleep(4) # Rate limit pacing
             
             all_projects.append({
                 "name": r['name'],
                 "tech_stack": r['tech_stack'],
                 "link": r['link'],
-                "bullets": [sanitize_for_latex(b) for b in bullets]
+                "bullets": bullets
             })
 
-    # 3. Handle Manual Projects & Merge
+    # 3. Handle Manual Projects (Hardware, specific jobs, etc.) & Merge
     manual_projects = raw_data.get('projects', [])
-    for mp in manual_projects:
-        mp['bullets'] = [sanitize_for_latex(b) for b in mp.get('bullets', [])]
-    
     all_projects.extend(manual_projects)
 
     # 4. Prepare and Sanitize the whole data structure
     final_data = raw_data.copy()
     final_data['projects'] = all_projects
     
-    # We apply specific LaTeX escaping to all string values
-    # You should implement this in your sanitizer.py
-    # safe_data = recursive_latex_sanitize(final_data) 
+    # 🚨 BOMB DEFUSED: The Global Sanitization
+    # We recursively escape LaTeX characters across the ENTIRE profile (summary, skills, bullets)
+    safe_data = sanitize_data(final_data) 
 
     # 5. Render Template
     env = Environment(
@@ -109,9 +116,13 @@ def main():
         variable_start_string='<<', variable_end_string='>>'
     )
     
+    # 🚨 Inject our sanitizer directly into Jinja as a filter
+    env.filters['escape_latex'] = escape_latex
+    
     try:
         template = env.get_template('resume_template.tex')
-        rendered_resume = template.render(final_data)
+        # Pass the sanitized data to the template, NOT the raw data
+        rendered_resume = template.render(safe_data)
         
         build_dir = os.path.join(base_dir, 'build')
         os.makedirs(build_dir, exist_ok=True)
@@ -121,8 +132,6 @@ def main():
             f.write(rendered_resume)
 
         print(f"LaTeX file generated at: {tex_output_path}")
-        
-        # 6. AUTO-COMPILE STEP
         compile_pdf(tex_output_path)
         
     except Exception as e:
