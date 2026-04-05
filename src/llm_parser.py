@@ -29,8 +29,7 @@ def generate_bullets_from_readme(repo_name, readme_content, is_umbrella):
     if not readme_content or len(readme_content.strip()) < 50:
         return [
             "Architected core system components and maintained repository.",
-            "Optimized application performance and resolved technical debt.",
-            "Implemented best practices for code maintainability."
+            "Optimized application performance and resolved technical debt."
         ]
         
     api_key = os.getenv("GEMINI_API_KEY")
@@ -51,14 +50,15 @@ def generate_bullets_from_readme(repo_name, readme_content, is_umbrella):
     
     {truncated_readme}
     
-    Your task: Generate exactly 3 professional, highly technical resume bullet points summarizing the architecture, logic, and impact of this project.
+    Your task: Generate exactly 2 professional, highly technical resume bullet points summarizing the architecture, logic, and impact of this project.
     Rules:
     - Analyze the entire README. Deeply extract the complex logic, math, physics, or architectural patterns used (ignore fluff and licenses).
-    - Start each bullet with a strong past-tense action verb (e.g., Architected, Engineered, Simulated, Optimized).
+    - Start each bullet with a strong, VARIED past-tense action verb (e.g., Architected, Designed, Orchestrated, Optimized, Spearheaded, Integrated). DO NOT repeat the same starting verb across bullets.
     - Quantify impact where possible and aggressively highlight the tech stack/frameworks.
+    - Never invent compound architectural terms. Use precise standard terminology only.
     - DO NOT include markdown formatting like asterisks (*), bolding, or hyphens at the start.
     - STRICT LENGTH LIMIT: Keep each bullet punchy, around 15-25 words, so it fits exactly on a single line in a PDF.
-    - Return ONLY the 3 bullet points, separated by a newline.
+    - Return ONLY the 2 bullet points, separated by a newline.
     """
     
     # Dynamically fetch what models your specific API key has access to
@@ -92,7 +92,7 @@ def generate_bullets_from_readme(repo_name, readme_content, is_umbrella):
             
             # Clean up any rogue hyphens or bullet characters the LLM might hallucinate
             cleaned_bullets = [b.lstrip('- *•').strip() for b in bullets if b.strip()]
-            return cleaned_bullets[:3]
+            return cleaned_bullets[:2]
             
         except Exception as e:
             # If a model fails (e.g., rate limit), log it and the loop continues to the next one
@@ -102,6 +102,5 @@ def generate_bullets_from_readme(repo_name, readme_content, is_umbrella):
     print("  [!] All Gemini models failed or are rate-limited. Using generic fallback bullets.")
     return [
         "Engineered core features and optimized system architecture.",
-        "Integrated real-time APIs to improve data throughput.",
         "Resolved critical technical issues to ensure platform stability."
     ]
