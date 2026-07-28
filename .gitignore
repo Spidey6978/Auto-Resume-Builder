@@ -1,16 +1,13 @@
 
 data/static_profile.yaml
 
-
 .env
-
 
 build/
 *.pdf
 
-
-
-pycache/
+.cache/
+__pycache__/
 *.py[cod]
 *$py.class
 .agents/

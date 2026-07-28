@@ -1,103 +1,126 @@
-Auto Resume Builder 🚀
+# Auto Resume Builder 🚀
 
-An enterprise-grade, ATS-friendly resume generation pipeline. This project dynamically fetches your pinned GitHub repositories, uses a cascading AI pipeline (Google Gemini) to generate highly technical resume bullet points from your raw README.md files, and injects the data into a pristine LaTeX template.
+An enterprise-grade, ATS-friendly resume compiler. This tool dynamically ingests your projects from GitHub, extracts architecture and impact using Google Gemini AI, and compiles tailored, 1-page resumes using pristine LuaLaTeX templates.
 
-✨ Core Features
+---
 
-AI-Powered Impact Parsing: Leverages a 40,000-token context window with Gemini (2.5/1.5 Flash) to analyze entire project READMEs, extracting complex math, logic, and architecture to generate exactly three 15-25 word ATS-optimized bullets per project.
+## ✨ Core Features
 
-Intelligent AI Fallbacks: Built-in graceful degradation. The script dynamically queries your API key's authorized models and cascades from gemini-2.5-flash down to gemini-1.0-pro to completely avoid rate-limit crashes.
+* **⚡ Input-Hash SQLite Disk Caching (`.cache/build_cache.db`)**: Computes SHA256 fingerprints for raw READMEs and LLM prompts. Re-running `resume build` on unchanged repositories consumes **0 Gemini API calls** and **0 GitHub API calls**, executing in sub-second time.
+* **🛡️ Centralized AI Gateway (`AIGateway`)**: Enforces rate-limit safety, retries, and automatic model fallback cascades (`gemini-2.5-flash` → `gemini-1.5-flash` → `gemini-1.5-pro` → `gemini-pro`) to eliminate quota crashes.
+* **🔌 Modular Source Adapters (`src/adapters/`)**: Extensible adapter system (`GitHubAdapter`, and future adapters for LinkedIn CSV exports and legacy PDF resumes). Includes fine-grained token authentication with automatic unauthenticated fallback for public repos.
+* **📦 Umbrella Projects**: Groups decoupled multi-repo projects (e.g., a React frontend and FastAPI backend) into a single unified "Full-Stack" resume entry.
+* **🛡️ Bulletproof LaTeX Sanitization**: Custom recursive sanitizer (`src/core/sanitizer.py`) that automatically escapes special characters (`&`, `%`, `$`, `_`, `#`, `{`, `}`) while preserving raw URLs for `\href{}` links.
+* **🧪 Mock AI Dry-Runs (`--mock-ai`)**: Instantly test LaTeX formatting and margins using simulated bullets in milliseconds without touching any API keys.
+* **🧹 Cache Management (`--clear-cache`)**: Easily flush local SQLite caches when you want to force fresh data extraction.
 
-Umbrella Projects: Intelligently groups decoupled multi-repo projects (e.g., a React frontend and FastAPI backend) into a single unified "Full-Stack" resume entry.
+---
 
-Bulletproof LaTeX Sanitization: Features a custom recursive sanitizer that automatically escapes special characters (&, %, $, _) while intelligently preserving raw URLs for hyperlinking, ensuring the LaTeX compiler never crashes.
+## 🏗️ Architecture Overview
 
-Mock AI Dry-Runs: Includes a --mock-ai CLI flag for local UI debugging. Generates a fully compiled PDF using simulated bullets in milliseconds, saving your daily Gemini API quota.
+```text
+src/
+├── core/
+│   ├── cache.py          # SQLite disk cache (namespace + SHA256 key hashing)
+│   ├── ai_gateway.py     # Centralized Gemini AI Manager (cache, rate limits, model fallback)
+│   ├── sanitizer.py      # Recursive LaTeX character escaping
+│   └── compiler.py       # Jinja2 template rendering + LuaLaTeX PDF compiler
+├── adapters/
+│   ├── base.py           # Abstract BaseAdapter interface
+│   └── github_adapter.py # GitHub REST API adapter with cached HTTP requests
+├── models/
+│   └── profile.py        # Dataclass schemas (ProfileData, ProjectItem)
+└── cli/
+    └── main.py           # CLI entry point and build orchestrator
+```
 
-Zero-Install Cloud CI/CD: Includes a GitHub Actions workflow (build_resume.yml) utilizing Tectonic to automatically compile and release your updated resume as a PDF artifact on every push.
+---
 
-🚀 Getting Started (Choose Your Path)
+## 🚀 Step-by-Step Setup & Usage Guide
 
-You can run this project entirely in the cloud without installing any software, or set it up locally for rapid template development.
+### 1. Prerequisites
 
-Path A: The "Cloud-Only" Route (Zero Install)
+* **Python 3.8+**
+* **LuaLaTeX Compiler** (Required for local PDF compilation):
+  * **Windows**: [MiKTeX](https://miktex.org/) or [TeX Live](https://www.tug.org/texlive/)
+  * **macOS**: [MacTeX](https://www.tug.org/mactex/)
+  * **Linux**: `sudo apt-get install texlive-full`
 
-Best if you just want to generate a resume without installing Python or LaTeX.
+---
 
-Fork this repository to your own GitHub account.
+### 2. Installation & Configuration
 
-Go to your repository's Settings > Secrets and variables > Actions > New repository secret.
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/auto-resume-builder.git
+   cd auto-resume-builder
+   ```
 
-Name: GEMINI_API_KEY
+2. **Set up a Virtual Environment & Install Dependencies**:
+   ```bash
+   python -m venv venv
+   # Windows:
+   .\venv\Scripts\activate
+   # Linux/macOS:
+   source venv/bin/activate
 
-Secret: (Paste your free Gemini API key from Google AI Studio)
+   pip install -r requirements.txt
+   ```
 
-In your browser, navigate to data/static_profile.example.yaml and copy its contents.
+3. **Configure Environment Variables (`.env`)**:
+   Create a `.env` file in the project root:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GITHUB_TOKEN=your_github_personal_access_token_here
+   ```
+   * *Gemini API Key*: Get a free key at [Google AI Studio](https://aistudio.google.com/).
+   * *GitHub Token*: Optional for public repos, recommended for private repos and higher rate limits.
 
-Create a new file in the data/ folder named static_profile.yaml, paste the contents, fill in your personal details, and commit the file.
+4. **Customize Your Profile (`data/static_profile.yaml`)**:
+   Copy or edit `data/static_profile.yaml` to specify your details and repositories:
+   ```yaml
+   github_username: "YourGitHubUsername"
 
-Go to the Actions tab. The workflow will automatically run, fetch your repos, generate the AI bullets, compile the LaTeX, and provide a downloadable PDF in the Artifacts section!
+   showcase_repos:
+     - "MyCoolRepo"
+     - "Raytracer"
+     - "TransitOS" # Use one repository when it contains the full application
 
-Path B: Local Developer Setup
+   name: "Your Name"
+   phone: "+1 123 456 7890"
+   email: "you@example.com"
+   ```
 
-Best if you want to preview, tweak margins, and test your resume rapidly on your own machine.
+---
 
-1. Prerequisites
+### 3. Usage Commands
 
-Python 3.8+
-
-A LuaLaTeX-compatible Compiler: * Windows: MiKTeX or TeX Live
-
-macOS: MacTeX
-
-Linux: sudo apt-get install texlive-full
-
-2. Installation & Setup
-
-Clone the repository and run the automated setup wizard:
-
-git clone [https://github.com/yourusername/auto-resume-builder.git](https://github.com/yourusername/auto-resume-builder.git)
-cd auto-resume-builder
-pip install -r requirements.txt
-
-# Run the setup wizard to configure your API keys and profile template
-python setup.py
-
-
-The wizard will safely create your local .env file and generate a static_profile.yaml file for you.
-
-3. Customize Your Profile
-
-Open data/static_profile.yaml and fill in your details. You can define your dynamic GitHub fetching in two ways:
-
-showcase_repos: List standard, standalone repositories.
-
-grouped_repos: List multi-repo applications to have the AI fuse their READMEs into one full-stack entry.
-
-4. Build and Compile
-
-Step 1: The Dry Run (Highly Recommended)
-Test your LaTeX formatting and margins without burning your API quota:
-
+#### Option A: Quick Dry-Run (No API Quota Used)
+Test your LaTeX template rendering and PDF layout in milliseconds:
+```bash
 python src/main.py --mock-ai
+```
 
-
-Step 2: The Production Build
-Once your layout looks perfect, run the full pipeline to fetch real AI bullets and compile the final PDF:
-
+#### Option B: Full Production Build
+Fetch repository data, generate/retrieve cached AI bullets, and compile the final PDF:
+```bash
 python src/main.py
+```
+* The output PDF will be saved at `build/resume.pdf`.
 
+#### Option C: Clear Cache & Force Fresh AI Generation
+Flush your local SQLite cache database (`.cache/build_cache.db`) and re-query Gemini for all repositories:
+```bash
+python src/main.py --clear-cache
+```
 
-Check the build/ directory for your pristine resume.pdf!
+---
 
-🛠️ Tech Stack
+## 🛠️ Tech Stack
 
-Orchestration: Python 3.10
-
-Templating: Jinja2
-
-Typesetting: LaTeX (LuaLaTeX engine / Tectonic)
-
-APIs: GitHub REST API, Google Generative AI API (Gemini)
-
-CI/CD: GitHub Actions
+* **Language**: Python 3.10+
+* **AI Engine**: Google Gemini API via `AIGateway` (`gemini-2.5-flash` / `1.5-flash`)
+* **Caching**: SQLite (`.cache/build_cache.db`)
+* **Templating**: Jinja2 (`templates/resume_template.tex`)
+* **Typesetting**: LuaLaTeX Engine
+* **APIs**: GitHub REST API v3
