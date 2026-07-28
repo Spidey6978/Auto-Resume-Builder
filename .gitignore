@@ -13,3 +13,4 @@ build/
 pycache/
 *.py[cod]
 *$py.class
+.agents/
