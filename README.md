@@ -1,22 +1,22 @@
-# Auto Resume Builder 🚀
+# Auto Resume Builder 
 
 An enterprise-grade, ATS-friendly resume compiler. This tool dynamically ingests your projects from GitHub, extracts architecture and impact using Google Gemini AI, and compiles tailored, 1-page resumes using pristine LuaLaTeX templates.
 
 ---
 
-## ✨ Core Features
+##  Core Features
 
-* **⚡ Input-Hash SQLite Disk Caching (`.cache/build_cache.db`)**: Computes SHA256 fingerprints for raw READMEs and LLM prompts. Re-running `resume build` on unchanged repositories consumes **0 Gemini API calls** and **0 GitHub API calls**, executing in sub-second time.
-* **🛡️ Centralized AI Gateway (`AIGateway`)**: Enforces rate-limit safety, retries, and automatic model fallback cascades (`gemini-2.5-flash` → `gemini-1.5-flash` → `gemini-1.5-pro` → `gemini-pro`) to eliminate quota crashes.
-* **🔌 Modular Source Adapters (`src/adapters/`)**: Extensible adapter system (`GitHubAdapter`, and future adapters for LinkedIn CSV exports and legacy PDF resumes). Includes fine-grained token authentication with automatic unauthenticated fallback for public repos.
-* **📦 Umbrella Projects**: Groups decoupled multi-repo projects (e.g., a React frontend and FastAPI backend) into a single unified "Full-Stack" resume entry.
-* **🛡️ Bulletproof LaTeX Sanitization**: Custom recursive sanitizer (`src/core/sanitizer.py`) that automatically escapes special characters (`&`, `%`, `$`, `_`, `#`, `{`, `}`) while preserving raw URLs for `\href{}` links.
-* **🧪 Mock AI Dry-Runs (`--mock-ai`)**: Instantly test LaTeX formatting and margins using simulated bullets in milliseconds without touching any API keys.
-* **🧹 Cache Management (`--clear-cache`)**: Easily flush local SQLite caches when you want to force fresh data extraction.
+* **Input-Hash SQLite Disk Caching (`.cache/build_cache.db`)**: Computes SHA256 fingerprints for raw READMEs and LLM prompts. Re-running `resume build` on unchanged repositories consumes **0 Gemini API calls** and **0 GitHub API calls**, executing in sub-second time.
+* **Centralized AI Gateway (`AIGateway`)**: Enforces rate-limit safety, retries, and automatic model fallback cascades (`gemini-2.5-flash` → `gemini-1.5-flash` → `gemini-1.5-pro` → `gemini-pro`) to eliminate quota crashes.
+* **Modular Source Adapters (`src/adapters/`)**: Extensible adapter system (`GitHubAdapter`, and future adapters for LinkedIn CSV exports and legacy PDF resumes). Includes fine-grained token authentication with automatic unauthenticated fallback for public repos.
+* **Umbrella Projects**: Groups decoupled multi-repo projects (e.g., a React frontend and FastAPI backend) into a single unified "Full-Stack" resume entry.
+* **Bulletproof LaTeX Sanitization**: Custom recursive sanitizer (`src/core/sanitizer.py`) that automatically escapes special characters (`&`, `%`, `$`, `_`, `#`, `{`, `}`) while preserving raw URLs for `\href{}` links.
+* **Mock AI Dry-Runs (`--mock-ai`)**: Instantly test LaTeX formatting and margins using simulated bullets in milliseconds without touching any API keys.
+* **Cache Management (`--clear-cache`)**: Easily flush local SQLite caches when you want to force fresh data extraction.
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```text
 src/
@@ -36,7 +36,7 @@ src/
 
 ---
 
-## 🚀 Step-by-Step Setup & Usage Guide
+## Step-by-Step Setup & Usage Guide
 
 ### 1. Prerequisites
 
