@@ -2,14 +2,15 @@ import os
 import json
 import sqlite3
 import hashlib
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any, Optional, Tuple, Dict
 
 
 class CacheManager:
     """
     SQLite-backed key-value cache manager.
-    Caches arbitrary JSON-serializable payloads indexed by SHA256 hashes of input keys.
+    Caches arbitrary JSON-serializable payloads and optional ETag headers
+    indexed by SHA256 hashes of input keys.
     """
 
     def __init__(self, db_path: Optional[str] = None):
@@ -27,7 +28,7 @@ class CacheManager:
         return sqlite3.connect(self.db_path)
 
     def _init_db(self):
-        """Creates the cache table if it doesn't already exist."""
+        """Creates or updates the cache table if it doesn't already exist."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -36,11 +37,18 @@ class CacheManager:
                     namespace TEXT NOT NULL,
                     key_hash TEXT NOT NULL,
                     payload TEXT NOT NULL,
+                    etag TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (namespace, key_hash)
                 )
                 """
             )
+            # Ensure etag column exists for backward compatibility if database was created earlier
+            cursor.execute("PRAGMA table_info(cache)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if "etag" not in columns:
+                cursor.execute("ALTER TABLE cache ADD COLUMN etag TEXT")
+
             conn.commit()
 
     @staticmethod
@@ -50,41 +58,53 @@ class CacheManager:
 
     def get(self, namespace: str, raw_key: str) -> Optional[Any]:
         """
-        Retrieves a cached value for the given namespace and raw_key.
+        Retrieves a cached payload value for the given namespace and raw_key.
         Returns None if not found or if decoding fails.
+        """
+        result = self.get_with_meta(namespace, raw_key)
+        if result:
+            return result[0]
+        return None
+
+    def get_with_meta(self, namespace: str, raw_key: str) -> Optional[Tuple[Any, Optional[str]]]:
+        """
+        Retrieves a tuple of (payload, etag) for the given namespace and raw_key.
+        Returns None if not found.
         """
         key_hash = self.hash_key(raw_key)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT payload FROM cache WHERE namespace = ? AND key_hash = ?",
+                "SELECT payload, etag FROM cache WHERE namespace = ? AND key_hash = ?",
                 (namespace, key_hash),
             )
             row = cursor.fetchone()
             if row:
+                payload_raw, etag = row[0], row[1]
                 try:
-                    return json.loads(row[0])
+                    payload = json.loads(payload_raw)
                 except json.JSONDecodeError:
-                    return row[0]
+                    payload = payload_raw
+                return payload, etag
         return None
 
-    def set(self, namespace: str, raw_key: str, payload: Any) -> None:
+    def set(self, namespace: str, raw_key: str, payload: Any, etag: Optional[str] = None) -> None:
         """
-        Stores a payload in the cache under namespace and raw_key.
+        Stores a payload and optional ETag in the cache under namespace and raw_key.
         Payload will be serialized to JSON.
         """
         key_hash = self.hash_key(raw_key)
-        payload_str = json.dumps(payload)
-        now = datetime.utcnow().isoformat()
+        payload_str = json.dumps(payload) if not isinstance(payload, str) else payload
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO cache (namespace, key_hash, payload, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT OR REPLACE INTO cache (namespace, key_hash, payload, etag, created_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (namespace, key_hash, payload_str, now),
+                (namespace, key_hash, payload_str, etag, now),
             )
             conn.commit()
 
@@ -98,7 +118,7 @@ class CacheManager:
                 cursor.execute("DELETE FROM cache")
             conn.commit()
 
-    def stats(self) -> dict:
+    def stats(self) -> Dict[str, int]:
         """Returns entry counts per namespace."""
         with self._get_connection() as conn:
             cursor = conn.cursor()

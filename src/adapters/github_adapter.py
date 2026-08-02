@@ -8,7 +8,7 @@ from core.cache import CacheManager
 class GitHubAdapter(BaseAdapter):
     """
     Source adapter for fetching repository details and READMEs from GitHub.
-    Uses CacheManager to prevent redundant HTTP requests.
+    Uses CacheManager with ETag HTTP conditional requests for cheap cache freshness validation.
     """
 
     CACHE_NAMESPACE = "github_api"
@@ -17,33 +17,60 @@ class GitHubAdapter(BaseAdapter):
         self.token = token
         self.cache = cache_manager or CacheManager()
         self.headers = {'Accept': 'application/vnd.github.v3+json'}
-        if self.token:
-            self.headers['Authorization'] = f'token {self.token}'
-
-    def _get_url(self, url: str) -> Optional[Dict[str, Any]]:
-        """Performs a GET request with caching."""
-        cached = self.cache.get(self.CACHE_NAMESPACE, url)
-        if cached is not None:
-            return cached
-
-        headers = self.headers.copy()
         if self.token and self.token.strip():
             token_val = self.token.strip()
             prefix = "Bearer" if token_val.startswith("github_pat_") or token_val.startswith("ghp_") else "token"
-            headers['Authorization'] = f"{prefix} {token_val}"
+            self.headers['Authorization'] = f"{prefix} {token_val}"
 
-        response = requests.get(url, headers=headers)
-        if response.status_code == 401 and 'Authorization' in headers:
-            # Fallback to unauthenticated request for public repositories
-            response = requests.get(url, headers={'Accept': 'application/vnd.github.v3+json'})
+    def _get_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        Performs a GET request with ETag conditional validation against the local cache.
+        Sends 'If-None-Match' when a cached ETag exists.
+        """
+        cached_meta = self.cache.get_with_meta(self.CACHE_NAMESPACE, url)
+        cached_payload, cached_etag = cached_meta if cached_meta else (None, None)
 
-        if response.status_code != 200:
+        headers = self.headers.copy()
+        if cached_etag:
+            headers['If-None-Match'] = cached_etag
+
+        try:
+            response = requests.get(url, headers=headers)
+
+            # 1. Handle HTTP 304 Not Modified: Cache is fresh!
+            if response.status_code == 304 and cached_payload is not None:
+                return cached_payload
+
+            # 2. Handle HTTP 401 Unauthorized: Retry unauthenticated for public repos
+            if response.status_code == 401 and 'Authorization' in headers:
+                unauth_headers = {'Accept': 'application/vnd.github.v3+json'}
+                if cached_etag:
+                    unauth_headers['If-None-Match'] = cached_etag
+                response = requests.get(url, headers=unauth_headers)
+                if response.status_code == 304 and cached_payload is not None:
+                    return cached_payload
+
+            # 3. Handle HTTP 200 OK: Data fetched / updated
+            if response.status_code == 200:
+                data = response.json()
+                new_etag = response.headers.get("ETag")
+                self.cache.set(self.CACHE_NAMESPACE, url, data, etag=new_etag)
+                return data
+
+            # 4. Fallback to cached payload on transient errors if available
+            if response.status_code in (429, 500, 502, 503, 504) and cached_payload is not None:
+                print(f"  [!] GitHub HTTP {response.status_code} for {url}. Serving cached fallback.")
+                return cached_payload
+
             print(f"  [!] GitHub HTTP {response.status_code} for {url}")
             return None
 
-        data = response.json()
-        self.cache.set(self.CACHE_NAMESPACE, url, data)
-        return data
+        except requests.RequestException as e:
+            if cached_payload is not None:
+                print(f"  [!] Request error for {url}: {e}. Serving cached fallback.")
+                return cached_payload
+            print(f"  [!] Request error for {url}: {e}")
+            return None
 
     def get_repo_data(self, username: str, repo_name: str) -> Optional[Dict[str, Any]]:
         """Fetches repository metadata, tech stack languages, and README content."""
@@ -66,7 +93,7 @@ class GitHubAdapter(BaseAdapter):
         readme_url = f'https://api.github.com/repos/{username}/{repo_name}/readme'
         readme_data = self._get_url(readme_url)
         readme_content = ""
-        if readme_data and 'content' in readme_data:
+        if readme_data and isinstance(readme_data, dict) and 'content' in readme_data:
             try:
                 readme_content = base64.b64decode(readme_data['content']).decode('utf-8', errors='ignore')
             except Exception:
