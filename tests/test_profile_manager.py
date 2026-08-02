@@ -173,3 +173,12 @@ def test_atomic_persistence(temp_yaml):
     assert os.path.exists(temp_yaml)
     loaded = ProfileManager(temp_yaml)
     assert loaded.profile.schema_version == 42
+
+
+def test_malformed_yaml_fails_fast(temp_yaml):
+    # Write garbage to the YAML file
+    with open(temp_yaml, "w") as f:
+        f.write("this is [} malformed yaml \n - : : what")
+        
+    with pytest.raises(RuntimeError, match="CRITICAL: Failed to parse existing canonical profile"):
+        ProfileManager(temp_yaml)

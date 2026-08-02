@@ -18,8 +18,11 @@ class ProfileManager:
             try:
                 return CanonicalProfile.from_yaml(self.yaml_path)
             except Exception as e:
-                print(f"  [!] Failed to parse existing canonical profile: {e}. Starting fresh.")
-                return CanonicalProfile()
+                raise RuntimeError(
+                    f"CRITICAL: Failed to parse existing canonical profile at '{self.yaml_path}'. "
+                    f"Please fix any YAML formatting errors manually. "
+                    f"Aborting to prevent overwriting your data. Error: {e}"
+                )
         return CanonicalProfile()
 
     def save(self) -> None:
