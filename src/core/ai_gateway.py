@@ -134,11 +134,34 @@ class AIGateway:
             print(f"  [CACHE HIT] Loaded cached bullets for '{repo_name}'")
             return cached_bullets
 
-        # 3. Check API Key
+        print(f"  [API CALL] Querying Gemini for '{repo_name}'...")
+        try:
+            response_text = self.generate_text(prompt, mock_ai=mock_ai, model_hint=repo_name)
+            bullets = response_text.strip().split("\n")
+            cleaned_bullets = [b.lstrip("- *•").strip() for b in bullets if b.strip()][:2]
+
+            if cleaned_bullets:
+                # Save to Cache on success
+                self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_bullets)
+                return cleaned_bullets
+        except Exception as e:
+            print(f"  [!] Exception during bullet generation for '{repo_name}': {e}")
+
+        # Explicit failure status (Never manufacture false bullet claims!)
+        print(f"  [!] All Gemini models failed for '{repo_name}'. Returning failure status.")
+        return [f"⚠️ Could not generate reliable bullets for {repo_name} due to API rate limits or errors."]
+
+    def generate_text(self, prompt: str, mock_ai: bool = False, model_hint: str = "") -> str:
+        """
+        Generic text generation with rate limiting, retries, and fallback cascade.
+        Does NOT handle caching (callers should handle their own cache semantics).
+        """
+        if mock_ai:
+            return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
+
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("  [!] GEMINI_API_KEY not found in environment.")
-            return [f"⚠️ GEMINI_API_KEY missing in .env file. Cannot generate bullets for {repo_name}."]
+            raise ValueError("GEMINI_API_KEY missing in environment.")
 
         genai.configure(api_key=api_key)
 
@@ -157,27 +180,18 @@ class AIGateway:
         if not models_to_try:
             models_to_try = ["gemini-pro"]
 
-        print(f"  [API CALL] Querying Gemini for '{repo_name}'...")
-
         for model_name in models_to_try:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     model = genai.GenerativeModel(model_name)
                     response = model.generate_content(prompt)
-                    bullets = response.text.strip().split("\n")
-                    cleaned_bullets = [b.lstrip("- *•").strip() for b in bullets if b.strip()][:2]
-
-                    if cleaned_bullets:
-                        # Save to Cache on success
-                        self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_bullets)
-                        return cleaned_bullets
-
+                    return response.text
                 except Exception as e:
                     error_type, retry_after_sec = classify_exception(e)
 
                     if error_type == "fatal":
-                        print(f"  [!] {model_name} fatal error for '{repo_name}': {e}. Skipping model.")
+                        print(f"  [!] {model_name} fatal error for '{model_hint}': {e}. Skipping model.")
                         break  # Stop retrying this model, jump to next model in cascade
 
                     # Transient error handling with exponential backoff + jitter
@@ -188,6 +202,4 @@ class AIGateway:
                     else:
                         print(f"  [!] {model_name} failed after {max_retries} attempts. Trying next model in cascade...")
 
-        # Explicit failure status (Never manufacture false bullet claims!)
-        print(f"  [!] All Gemini models failed for '{repo_name}'. Returning failure status.")
-        return [f"⚠️ Could not generate reliable bullets for {repo_name} due to API rate limits or errors."]
+        raise RuntimeError(f"All Gemini models failed to generate text for '{model_hint}' due to API errors.")
