@@ -9,6 +9,12 @@ from models.domain import (
     SourceResult,
     CanonicalProfile,
 )
+from models.presentation import (
+    RenderedProject,
+    RenderedExperience,
+    RenderedAward,
+    ResumeDocument,
+)
 from models.profile import ProfileData, ProjectItem
 
 __all__ = [
@@ -21,6 +27,10 @@ __all__ = [
     "SourceStatus",
     "SourceResult",
     "CanonicalProfile",
+    "RenderedProject",
+    "RenderedExperience",
+    "RenderedAward",
+    "ResumeDocument",
     "ProfileData",
     "ProjectItem",
 ]

@@ -71,85 +71,8 @@ def classify_exception(exc: Exception) -> Tuple[str, Optional[int]]:
 class AIGateway:
     """
     Unified AI Gateway for Google Gemini API.
-    Handles input caching, version fingerprinting, transient retry backoffs, and rate-limit safety.
-    Never manufactures generic/fabricated fallback bullets when data is missing or API fails.
+    Handles input caching, transient retry backoffs, and rate-limit safety.
     """
-
-    CACHE_NAMESPACE = "llm_bullets"
-
-    def __init__(self, cache_manager: Optional[CacheManager] = None):
-        self.cache = cache_manager or CacheManager()
-
-    def generate_bullets_from_readme(
-        self,
-        repo_name: str,
-        readme_content: str,
-        is_umbrella: bool = False,
-        target_salt: str = "general",
-        mock_ai: bool = False
-    ) -> List[str]:
-        """
-        Generates 2 ATS-optimized resume bullet points from raw README content.
-        Uses local cache if available; otherwise queries Gemini with bounded retries.
-        """
-        if mock_ai:
-            print(f"  [MOCK AI] Generating simulated bullets for '{repo_name}'")
-            return [
-                f"Simulated bullet point 1 for {repo_name} highlighting technical features and architecture.",
-                f"Simulated bullet point 2 for {repo_name} demonstrating impact and performance optimization."
-            ]
-
-        # Explicit failure status if README is insufficient (Rule: No fabricated bullets)
-        if not readme_content or len(readme_content.strip()) < 50:
-            print(f"  [!] Insufficient README data for '{repo_name}'. Cannot generate reliable bullets.")
-            return [f"⚠️ Insufficient source material to generate reliable bullets for {repo_name}."]
-
-        truncated_readme = readme_content[:40000]
-        context_type = "a grouped full-stack project" if is_umbrella else "a technical repository"
-
-        prompt = f"""
-        You are an elite ATS resume writer and senior engineering recruiter. I have {context_type} named '{repo_name}'.
-        Here is the content of the README.md:
-        
-        {truncated_readme}
-        
-        Your task: Generate exactly 2 professional, highly technical resume bullet points summarizing the architecture, logic, and impact of this project.
-        Rules:
-        - Analyze the entire README. Deeply extract the complex logic, math, physics, or architectural patterns used (ignore fluff and licenses).
-        - Start each bullet with a strong, VARIED past-tense action verb (e.g., Architected, Designed, Orchestrated, Optimized, Spearheaded, Integrated). DO NOT repeat the same starting verb across bullets.
-        - Quantify impact where possible and aggressively highlight the tech stack/frameworks.
-        - Never invent compound architectural terms. Use precise standard terminology only.
-        - DO NOT include markdown formatting like asterisks (*), bolding, or hyphens at the start.
-        - STRICT LENGTH LIMIT: Keep each bullet punchy, around 15-25 words, so it fits exactly on a single line in a PDF.
-        - Return ONLY the 2 bullet points, separated by a newline.
-        """
-
-        # 1. Compute Cache Key fingerprint including PROMPT_VERSION, target_salt, prompt_hash, and content
-        prompt_hash = CacheManager.hash_key(prompt)
-        cache_key = f"{PROMPT_VERSION}||{target_salt}||{prompt_hash}||{repo_name}||{truncated_readme}"
-
-        # 2. Check Cache
-        cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
-        if cached_bullets and isinstance(cached_bullets, list):
-            print(f"  [CACHE HIT] Loaded cached bullets for '{repo_name}'")
-            return cached_bullets
-
-        print(f"  [API CALL] Querying Gemini for '{repo_name}'...")
-        try:
-            response_text = self.generate_text(prompt, mock_ai=mock_ai, model_hint=repo_name)
-            bullets = response_text.strip().split("\n")
-            cleaned_bullets = [b.lstrip("- *•").strip() for b in bullets if b.strip()][:2]
-
-            if cleaned_bullets:
-                # Save to Cache on success
-                self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_bullets)
-                return cleaned_bullets
-        except Exception as e:
-            print(f"  [!] Exception during bullet generation for '{repo_name}': {e}")
-
-        # Explicit failure status (Never manufacture false bullet claims!)
-        print(f"  [!] All Gemini models failed for '{repo_name}'. Returning failure status.")
-        return [f"⚠️ Could not generate reliable bullets for {repo_name} due to API rate limits or errors."]
 
     def generate_text(self, prompt: str, mock_ai: bool = False, model_hint: str = "") -> str:
         """
