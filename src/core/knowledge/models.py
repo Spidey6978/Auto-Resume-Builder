@@ -8,6 +8,20 @@ class PolicyStrength(str, Enum):
     WEAK_RECOMMENDATION = "weak_recommendation"
     ADVISORY = "advisory"
 
+class KnowledgeComponentType(str, Enum):
+    GLOBAL = "global"
+    DOMAIN = "domain"
+    SPECIALIZATION = "specialization"
+    CAREER_STAGE = "career_stage"
+    DOCUMENT_TYPE = "document_type"
+    GEOGRAPHY = "geography"
+
+class PriorityImportance(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
 class EvidenceRef(BaseModel):
     title: str
     publisher: Optional[str] = None
@@ -39,7 +53,7 @@ class DisputedGuidance(BaseModel):
 class Priority(BaseModel):
     id: str
     description: Optional[str] = None
-    importance: str
+    importance: PriorityImportance
     evidence_refs: List[str] = Field(default_factory=list)
 
 class KnowledgeComponent(BaseModel):
@@ -49,7 +63,7 @@ class KnowledgeComponent(BaseModel):
     """
     schema_version: str = "1.0"
     id: str
-    type: str # 'global', 'domain', 'specialization', 'career_stage', 'document_type', 'geography'
+    type: KnowledgeComponentType
     
     # Generic policies (e.g. page_policy, section_order, etc)
     policies: List[ConditionalPolicy] = Field(default_factory=list)

@@ -20,13 +20,13 @@ def test_target_engine_filter_exclude():
     )
     
     # We mock _score_project_facts to just return the facts to isolate filtering
-    engine._score_project_facts = MagicMock(side_effect=lambda p, t, mock_ai=False: p.facts)
+    engine._score_project_facts = MagicMock(side_effect=lambda p, t, mock_ai=False: (p.facts, "success"))
     
-    targeted = engine.apply_target(profile, target)
+    plan = engine.create_plan(profile, target)
     
-    assert len(targeted.projects) == 2
-    assert targeted.projects[0].id == "p1"
-    assert targeted.projects[1].id == "p3"
+    assert len(plan.projects) == 2
+    assert plan.projects[0].project_id == "p1"
+    assert plan.projects[1].project_id == "p3"
 
 def test_target_engine_filter_include_only():
     engine = TargetEngine(ai_gateway=MagicMock(), cache_manager=MagicMock())
@@ -45,11 +45,11 @@ def test_target_engine_filter_include_only():
         project_rules=TargetRule(include_only=["p2"])
     )
     
-    engine._score_project_facts = MagicMock(side_effect=lambda p, t, mock_ai=False: p.facts)
-    targeted = engine.apply_target(profile, target)
+    engine._score_project_facts = MagicMock(side_effect=lambda p, t, mock_ai=False: (p.facts, "success"))
+    plan = engine.create_plan(profile, target)
     
-    assert len(targeted.projects) == 1
-    assert targeted.projects[0].id == "p2"
+    assert len(plan.projects) == 1
+    assert plan.projects[0].project_id == "p2"
 
 def test_target_engine_scoring_mock_ai():
     mock_ai = MagicMock()
@@ -72,7 +72,7 @@ def test_target_engine_scoring_mock_ai():
     target = TargetContext(id="test", description="desc")
     
     # Request max 3 facts
-    best_facts = engine._score_project_facts(project, target, mock_ai=True, max_facts=3)
+    best_facts, status = engine._score_project_facts(project, target, mock_ai=True, max_facts=3)
     
     assert len(best_facts) == 3
     assert best_facts[0].id == "f1"

@@ -3,6 +3,7 @@ import hashlib
 import logging
 from typing import List
 from models.domain import CanonicalProfile, TargetContext, Project, Fact
+from models.plan import ResumePlan, PlannedProject, PlannedFact
 from core.ai_gateway import AIGateway
 from core.cache import CacheManager
 
@@ -32,12 +33,12 @@ class TargetEngine:
             filtered.append(p)
         return filtered
 
-    def _score_project_facts(self, project: Project, target: TargetContext, mock_ai: bool = False, max_facts: int = 5) -> List[Fact]:
+    def _score_project_facts(self, project: Project, target: TargetContext, mock_ai: bool = False, max_facts: int = 5) -> tuple[List[Fact], str]:
         """
         Uses the AI to score and select the top `max_facts` most relevant facts for the target role.
         """
         if len(project.facts) <= max_facts:
-            return project.facts
+            return project.facts, "success_unfiltered"
 
         # Fingerprint the JD + the facts
         sorted_facts = sorted(project.facts, key=lambda f: f.id)
@@ -52,10 +53,11 @@ class TargetEngine:
         
         cached_selection = self.cache.get(self.CACHE_NAMESPACE, cache_key)
         if cached_selection and isinstance(cached_selection, list):
-            # Map IDs back to Fact objects
-            selected = [f for f in project.facts if f.id in cached_selection]
+            # Map IDs back to Fact objects preserving LLM ranking order
+            fact_map = {f.id: f for f in project.facts}
+            selected = [fact_map[fid] for fid in cached_selection if fid in fact_map]
             if selected:
-                return selected[:max_facts]
+                return selected[:max_facts], "cache_hit"
 
         fact_text = "\n".join([f"[{f.id}] {f.text}" for f in project.facts])
         prompt = f"""
@@ -92,43 +94,38 @@ Example: ["fact_1", "fact_3", "fact_2"]
             if selected_ids:
                 self.cache.set(self.CACHE_NAMESPACE, cache_key, selected_ids)
                 
-            selected_facts = [f for f in project.facts if f.id in selected_ids]
+            fact_map = {f.id: f for f in project.facts}
+            selected_facts = [fact_map[fid] for fid in selected_ids if fid in fact_map]
             # Fallback if parsing failed
-            return selected_facts[:max_facts] if selected_facts else project.facts[:max_facts]
+            if selected_facts:
+                return selected_facts[:max_facts], "success"
+            return project.facts[:max_facts], "fallback_unranked"
             
         except Exception as e:
             logger.error(f"TargetEngine fact scoring failed: {e}")
-            return project.facts[:max_facts]
+            return project.facts[:max_facts], "fallback_unranked"
 
-    def apply_target(self, profile: CanonicalProfile, target: TargetContext, mock_ai: bool = False) -> CanonicalProfile:
+    def create_plan(self, profile: CanonicalProfile, target: TargetContext, mock_ai: bool = False) -> ResumePlan:
         """
-        Returns a new targeted CanonicalProfile with pruned projects and ranked/filtered facts.
+        Returns a ResumePlan dictating which projects and facts should be included.
+        Does not mutate the CanonicalProfile.
         """
-        # We don't want to mutate the global in-memory profile, so we build a shallow-ish copy
-        targeted_projects = []
+        planned_projects = []
         filtered_projects = self._filter_projects(profile.projects, target)
         
         for proj in filtered_projects:
-            best_facts = self._score_project_facts(proj, target, mock_ai=mock_ai)
+            best_facts, status = self._score_project_facts(proj, target, mock_ai=mock_ai)
             
-            targeted_proj = Project(
-                id=proj.id,
-                name=proj.name,
-                link=proj.link,
-                tech_stack=proj.tech_stack,
-                category=proj.category,
-                facts=best_facts
+            planned_facts = [PlannedFact(fact_id=f.id, targeting_status=status) for f in best_facts]
+            
+            planned_proj = PlannedProject(
+                project_id=proj.id,
+                selected_facts=planned_facts
             )
-            targeted_projects.append(targeted_proj)
+            planned_projects.append(planned_proj)
 
-        # Build a new profile with the targeted data
-        # For now, we only filter projects. Experience and awards just pass through.
-        return CanonicalProfile(
-            schema_version=profile.schema_version,
-            personal=profile.personal,
-            education=profile.education,
-            experience=profile.experience,  # Future: filter these too
-            awards=profile.awards,
-            projects=targeted_projects,
-            skills=profile.skills
+        # Build a new plan with the targeted data
+        return ResumePlan(
+            target=target,
+            projects=planned_projects
         )

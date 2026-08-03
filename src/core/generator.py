@@ -4,7 +4,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
 
-from models.domain import Project, Fact, TargetContext
+from models.domain import CanonicalProfile, Project, Fact, TargetContext
+from models.plan import ResumePlan, PlannedProject
 from core.ai_gateway import AIGateway
 from core.cache import CacheManager
 
@@ -56,23 +57,39 @@ class ContentGenerator:
         payload_str = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(payload_str.encode('utf-8')).hexdigest()
 
-    def generate_project_bullets(self, project: Project, target: TargetContext, mock_ai: bool = False) -> GenerationResult:
+    def generate_project_bullets(self, profile: CanonicalProfile, planned_project: PlannedProject, target: TargetContext, mock_ai: bool = False) -> GenerationResult:
         """
         Generates 2 highly condensed, ATS-optimized bullets for a single project,
-        using ONLY the objective facts provided in the domain model.
+        using ONLY the objective facts provided in the plan.
         """
-        # If there are no facts, we cannot generate truthful bullets.
-        if not project.facts:
+        project = next((p for p in profile.projects if p.id == planned_project.project_id), None)
+        if not project:
             return GenerationResult([], GenerationStatus.INSUFFICIENT_DATA)
             
-        cache_key = self._fingerprint(project, target)
+        fact_ids = [pf.fact_id for pf in planned_project.selected_facts]
+        fact_map = {f.id: f for f in project.facts}
+        selected_facts = [fact_map[fid] for fid in fact_ids if fid in fact_map]
+        
+        # We temporarily inject selected facts to use the existing fingerprint method
+        temp_proj = Project(
+            id=project.id,
+            name=project.name,
+            tech_stack=project.tech_stack,
+            facts=selected_facts
+        )
+        
+        # If there are no facts, we cannot generate truthful bullets.
+        if not selected_facts:
+            return GenerationResult([], GenerationStatus.INSUFFICIENT_DATA)
+            
+        cache_key = self._fingerprint(temp_proj, target)
         
         cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
         if cached_bullets:
             return GenerationResult(cached_bullets, GenerationStatus.SUCCESS)
             
         # Fact payload for the LLM
-        fact_text = "\n".join([f"- [{f.fact_type}] {f.text} (Metric: {f.metric or 'N/A'})" for f in project.facts])
+        fact_text = "\n".join([f"- [{f.fact_type}] {f.text} (Metric: {f.metric or 'N/A'})" for f in selected_facts])
         tech_context = ", ".join(project.tech_stack) if project.tech_stack else "None specified"
         
         prompt = f"""

@@ -88,17 +88,22 @@ class BuildPipeline:
 
     def create_document(self, target: TargetContext, mock_ai: bool = False) -> ResumeDocument:
         """
-        LOAD canonical profile -> PRUNE/SCORE via TargetEngine -> GENERATE bullets -> construct Document
+        LOAD canonical profile -> CREATE plan -> GENERATE bullets -> construct Document
         """
         raw_profile = self.profile_manager.profile
         
-        # Apply targeting rules and AI fact scoring
-        profile = self.target_engine.apply_target(raw_profile, target, mock_ai=mock_ai)
+        # Apply targeting rules and AI fact scoring to create a plan
+        plan = self.target_engine.create_plan(raw_profile, target, mock_ai=mock_ai)
 
         
         rendered_projects = []
-        for proj in profile.projects:
-            gen_result = self.generator.generate_project_bullets(proj, target=target, mock_ai=mock_ai)
+        for planned_proj in plan.projects:
+            # find original project to get non-bullet info
+            proj = next((p for p in raw_profile.projects if p.id == planned_proj.project_id), None)
+            if not proj:
+                continue
+                
+            gen_result = self.generator.generate_project_bullets(raw_profile, planned_proj, target=target, mock_ai=mock_ai)
             bullets = gen_result.bullets if gen_result.status == "success" else []
             if not bullets and gen_result.status != "success":
                 logger.warning(f"Failed to generate bullets for '{proj.name}' ({gen_result.status}).")
@@ -115,7 +120,7 @@ class BuildPipeline:
         # Currently, the canonical profile doesn't have a direct field for old raw bullets. 
         # If human added bullets manually in legacy yaml, we can pass them through for now, or just leave them empty.
         rendered_experience = []
-        for exp in profile.experience:
+        for exp in raw_profile.experience:
             rendered_experience.append(RenderedExperience(
                 id=exp.id,
                 organization=exp.organization,
@@ -127,7 +132,7 @@ class BuildPipeline:
             ))
             
         rendered_awards = []
-        for awd in profile.awards:
+        for awd in raw_profile.awards:
             rendered_awards.append(RenderedAward(
                 id=awd.id,
                 title=awd.title,
@@ -138,12 +143,12 @@ class BuildPipeline:
             ))
             
         return ResumeDocument(
-            personal=profile.personal,
-            education=profile.education,
+            personal=raw_profile.personal,
+            education=raw_profile.education,
             experience=rendered_experience,
             awards=rendered_awards,
             projects=rendered_projects,
-            skills=profile.skills
+            skills=raw_profile.skills
         )
 
     def build_resume(self, target: TargetContext, mock_ai: bool = False) -> BuildResult:

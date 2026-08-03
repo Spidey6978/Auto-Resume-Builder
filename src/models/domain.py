@@ -44,6 +44,7 @@ class Project:
     tech_stack: List[str] = field(default_factory=list)
     category: List[str] = field(default_factory=list)
     facts: List[Fact] = field(default_factory=list)
+    targeting_status: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -60,7 +61,8 @@ class Project:
             link=data.get("link"),
             tech_stack=data.get("tech_stack", []),
             category=data.get("category", []) if isinstance(data.get("category"), list) else ([data["category"]] if data.get("category") else []),
-            facts=facts
+            facts=facts,
+            targeting_status=data.get("targeting_status")
         )
 
 

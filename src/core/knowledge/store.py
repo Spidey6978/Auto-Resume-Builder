@@ -49,10 +49,35 @@ class KnowledgeStore:
         component = KnowledgeComponent(**data)
         
         # Verify type matches the directory it's in
-        if component.type != category:
-            raise ValueError(f"Component type '{component.type}' does not match directory category '{category}' in {filepath}")
+        if component.type.value != category:
+            raise ValueError(f"Component type '{component.type.value}' does not match directory category '{category}' in {filepath}")
+            
+        self._validate_evidence_refs(component, filepath)
             
         self._components[category][component.id] = component
+
+    def _validate_evidence_refs(self, component: KnowledgeComponent, filepath: Path):
+        valid_refs = set(component.sources.keys())
+        
+        for policy in component.policies:
+            for ref in policy.evidence_refs:
+                if ref not in valid_refs:
+                    raise ValueError(f"Dangling evidence_ref '{ref}' in policy '{policy.id}' in {filepath}")
+            for cond in policy.conditions:
+                for ref in cond.evidence_refs:
+                    if ref not in valid_refs:
+                        raise ValueError(f"Dangling evidence_ref '{ref}' in condition '{cond.condition}' in {filepath}")
+                        
+        for priority in component.priorities:
+            for ref in priority.evidence_refs:
+                if ref not in valid_refs:
+                    raise ValueError(f"Dangling evidence_ref '{ref}' in priority '{priority.id}' in {filepath}")
+                    
+        for dg in component.disputed_guidance:
+            for pos in dg.positions:
+                for ref in pos.evidence_refs:
+                    if ref not in valid_refs:
+                        raise ValueError(f"Dangling evidence_ref '{ref}' in disputed_guidance '{dg.id}' in {filepath}")
 
     def get_component(self, category: str, component_id: str) -> Optional[KnowledgeComponent]:
         if category not in self._components:
