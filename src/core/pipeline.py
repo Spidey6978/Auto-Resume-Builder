@@ -11,6 +11,7 @@ from core.compiler import ResumeCompiler
 from adapters.github_adapter import GitHubAdapter
 from core.normalizer import normalize_languages
 from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
+from core.target_engine import TargetEngine
 from models.domain import TargetContext
 
 logger = logging.getLogger(__name__)
@@ -39,12 +40,14 @@ class BuildPipeline:
         extractor: FactExtractor,
         generator: ContentGenerator,
         compiler: ResumeCompiler,
+        target_engine: TargetEngine
     ):
         self.profile_manager = profile_manager
         self.github = github_adapter
         self.extractor = extractor
         self.generator = generator
         self.compiler = compiler
+        self.target_engine = target_engine
 
     def sync_github_project(self, repo_url: str, mock_ai: bool = False) -> SyncResult:
         """
@@ -85,9 +88,13 @@ class BuildPipeline:
 
     def create_document(self, target: TargetContext, mock_ai: bool = False) -> ResumeDocument:
         """
-        LOAD canonical profile -> GENERATE presentation content -> construct ResumeDocument
+        LOAD canonical profile -> PRUNE/SCORE via TargetEngine -> GENERATE bullets -> construct Document
         """
-        profile = self.profile_manager.profile
+        raw_profile = self.profile_manager.profile
+        
+        # Apply targeting rules and AI fact scoring
+        profile = self.target_engine.apply_target(raw_profile, target, mock_ai=mock_ai)
+
         
         rendered_projects = []
         for proj in profile.projects:

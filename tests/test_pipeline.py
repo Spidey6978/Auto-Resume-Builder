@@ -19,12 +19,17 @@ def test_pipeline_build_resume():
     mock_compiler = MagicMock()
     mock_compiler.compile_resume.return_value = "/build/resume.pdf"
     
+    mock_target_engine = MagicMock()
+    # Mock apply_target to just return the same profile
+    mock_target_engine.apply_target.return_value = mock_profile_manager.profile
+
     pipeline = BuildPipeline(
         profile_manager=mock_profile_manager,
         github_adapter=MagicMock(),
         extractor=MagicMock(),
         generator=mock_generator,
-        compiler=mock_compiler
+        compiler=mock_compiler,
+        target_engine=mock_target_engine
     )
     
     target = TargetContext(id="test", description="desc")

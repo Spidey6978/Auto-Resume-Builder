@@ -107,8 +107,11 @@ def main():
 
     # Initialize TargetLoader
     from core.target_loader import TargetLoader
+    from core.target_engine import TargetEngine
+    
     targets_dir = os.path.join(base_dir, "data", "targets")
     target_loader = TargetLoader(targets_dir=targets_dir)
+    target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr)
 
     # 3. Inject into Pipeline Orchestrator
     pipeline = BuildPipeline(
@@ -116,7 +119,8 @@ def main():
         github_adapter=github_adapter,
         extractor=extractor,
         generator=generator,
-        compiler=compiler
+        compiler=compiler,
+        target_engine=target_engine
     )
 
     # 4. Execute requested commands
