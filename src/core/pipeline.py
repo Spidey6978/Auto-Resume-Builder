@@ -1,3 +1,6 @@
+import os
+import uuid
+import logging
 from typing import Optional
 from dataclasses import dataclass
 
@@ -8,6 +11,8 @@ from core.compiler import ResumeCompiler
 from adapters.github_adapter import GitHubAdapter
 from core.normalizer import normalize_languages
 from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SyncResult:
@@ -88,7 +93,7 @@ class BuildPipeline:
             gen_result = self.generator.generate_project_bullets(proj, target=target, mock_ai=mock_ai)
             bullets = gen_result.bullets if gen_result.status == "success" else []
             if not bullets and gen_result.status != "success":
-                print(f"  [!] Warning: Failed to generate bullets for '{proj.name}' ({gen_result.status}).")
+                logger.warning(f"Failed to generate bullets for '{proj.name}' ({gen_result.status}).")
                 
             rendered_projects.append(RenderedProject(
                 id=proj.id,
@@ -135,11 +140,16 @@ class BuildPipeline:
 
     def build_resume(self, target: str = "general", mock_ai: bool = False) -> BuildResult:
         """
-        Builds the presentation document and compiles the PDF.
+        Builds the presentation document, sets up a unique workspace, and compiles the PDF.
         """
         try:
             document = self.create_document(target=target, mock_ai=mock_ai)
-            pdf_path = self.compiler.compile_resume(document)
+            
+            build_id = uuid.uuid4().hex
+            output_dir = os.path.join(os.path.dirname(self.compiler.templates_dir), "build", build_id)
+            
+            pdf_path = self.compiler.compile_resume(document, output_dir=output_dir)
             return BuildResult(True, pdf_path, "Resume compiled successfully")
         except Exception as e:
+            logger.error(f"Compilation failed: {e}")
             return BuildResult(False, None, f"Compilation failed: {e}")

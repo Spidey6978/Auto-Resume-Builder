@@ -1,9 +1,11 @@
 import requests
 import base64
+import logging
 from typing import List, Dict, Optional, Any
 from adapters.base import BaseAdapter
 from core.cache import CacheManager
 
+logger = logging.getLogger(__name__)
 
 class GitHubAdapter(BaseAdapter):
     """
@@ -57,19 +59,19 @@ class GitHubAdapter(BaseAdapter):
                 self.cache.set(self.CACHE_NAMESPACE, url, data, etag=new_etag)
                 return data
 
-            # 4. Fallback to cached payload on transient errors if available
+            # 4. Handle HTTP 4xx/5xx Errors: Fallback to cache
             if response.status_code in (429, 500, 502, 503, 504) and cached_payload is not None:
-                print(f"  [!] GitHub HTTP {response.status_code} for {url}. Serving cached fallback.")
+                logger.warning(f"GitHub HTTP {response.status_code} for {url}. Serving cached fallback.")
                 return cached_payload
 
-            print(f"  [!] GitHub HTTP {response.status_code} for {url}")
+            logger.error(f"GitHub HTTP {response.status_code} for {url}")
             return None
 
         except requests.RequestException as e:
             if cached_payload is not None:
-                print(f"  [!] Request error for {url}: {e}. Serving cached fallback.")
+                logger.warning(f"Request error for {url}: {e}. Serving cached fallback.")
                 return cached_payload
-            print(f"  [!] Request error for {url}: {e}")
+            logger.error(f"Request error for {url}: {e}")
             return None
 
     def get_repo_data(self, username: str, repo_name: str) -> Optional[Dict[str, Any]]:
@@ -78,7 +80,7 @@ class GitHubAdapter(BaseAdapter):
         data = self._get_url(repo_url)
 
         if not data:
-            print(f"  [!] Failed to fetch {repo_name} from GitHub")
+            logger.error(f"Failed to fetch {repo_name} from GitHub")
             return None
 
         # Fetch language breakdown

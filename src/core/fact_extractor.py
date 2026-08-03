@@ -1,6 +1,7 @@
 import json
 import hashlib
 import re
+import logging
 from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
@@ -8,6 +9,9 @@ from typing import List, Optional
 from models.domain import Fact, SourceResult, SourceStatus
 from core.ai_gateway import AIGateway
 from core.cache import CacheManager
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractionStatus(str, Enum):
@@ -32,9 +36,9 @@ class FactExtractor:
     CACHE_NAMESPACE = "llm_facts"
     PROMPT_VERSION = "extract-v1.0"
 
-    def __init__(self, ai_gateway: Optional[AIGateway] = None, cache_manager: Optional[CacheManager] = None):
-        self.ai = ai_gateway or AIGateway()
-        self.cache = cache_manager or CacheManager()
+    def __init__(self, ai_gateway: AIGateway, cache_manager: CacheManager):
+        self.ai = ai_gateway
+        self.cache = cache_manager
 
     def _fingerprint(self, source_result: SourceResult) -> str:
         prompt_hash = CacheManager.hash_key(self.PROMPT_VERSION)

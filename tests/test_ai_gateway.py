@@ -3,7 +3,7 @@ import tempfile
 import gc
 import pytest
 from unittest.mock import patch, MagicMock
-from core.ai_gateway import AIGateway, classify_exception, PROMPT_VERSION
+from core.ai_gateway import AIGateway, classify_exception
 from core.cache import CacheManager
 
 
@@ -24,6 +24,6 @@ def test_exception_classifier():
 
 
 def test_generate_text_mock_ai():
-    gateway = AIGateway()
+    gateway = AIGateway(api_key="mock")
     result = gateway.generate_text("Prompt", mock_ai=True, model_hint="TestHint")
     assert "Mocked AI response for TestHint" in result

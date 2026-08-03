@@ -60,10 +60,10 @@ class ResumeCompiler:
             print("  [!] Error: LuaLaTeX compilation failed. Check log file in build folder.")
             return False
 
-    def compile_resume(self, document: 'ResumeDocument') -> str:
+    def compile_resume(self, document: 'ResumeDocument', output_dir: str) -> str:
         """
         Takes a highly structured ResumeDocument, renders it into LaTeX, 
-        saves it, and compiles it into a PDF.
+        saves it into the specified output_dir, and compiles it into a PDF.
         """
         import dataclasses
         # Convert document dataclass back to dictionary for Jinja2
@@ -71,9 +71,8 @@ class ResumeCompiler:
         
         rendered_tex = self.render("resume_template.tex", doc_dict)
         
-        build_dir = os.path.join(os.path.dirname(self.templates_dir), "build")
-        os.makedirs(build_dir, exist_ok=True)
-        tex_output_path = os.path.join(build_dir, "resume.tex")
+        os.makedirs(output_dir, exist_ok=True)
+        tex_output_path = os.path.join(output_dir, "resume.tex")
         
         with open(tex_output_path, "w", encoding="utf-8") as f:
             f.write(rendered_tex)
@@ -81,4 +80,4 @@ class ResumeCompiler:
         print(f"  LaTeX file generated at: {tex_output_path}")
         self.compile_pdf(tex_output_path)
         
-        return tex_output_path
+        return os.path.join(output_dir, "resume.pdf")

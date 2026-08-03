@@ -2,31 +2,11 @@ import os
 import time
 import random
 import re
+import logging
 import google.generativeai as genai
 from typing import List, Optional, Tuple
-from core.cache import CacheManager
 
-PROMPT_VERSION = "bullets-v1.0"
-_AVAILABLE_MODELS_CACHE = None
-
-
-def get_available_models(api_key: str) -> List[str]:
-    global _AVAILABLE_MODELS_CACHE
-    if _AVAILABLE_MODELS_CACHE is not None:
-        return _AVAILABLE_MODELS_CACHE
-
-    genai.configure(api_key=api_key)
-    try:
-        _AVAILABLE_MODELS_CACHE = [
-            m.name.replace("models/", "")
-            for m in genai.list_models()
-            if "generateContent" in m.supported_generation_methods
-        ]
-    except Exception as e:
-        print(f"  [!] Could not fetch available Gemini models: {e}")
-        _AVAILABLE_MODELS_CACHE = []
-
-    return _AVAILABLE_MODELS_CACHE
+logger = logging.getLogger(__name__)
 
 
 def classify_exception(exc: Exception) -> Tuple[str, Optional[int]]:
@@ -71,8 +51,31 @@ def classify_exception(exc: Exception) -> Tuple[str, Optional[int]]:
 class AIGateway:
     """
     Unified AI Gateway for Google Gemini API.
-    Handles input caching, transient retry backoffs, and rate-limit safety.
+    Handles transient retry backoffs and rate-limit safety.
     """
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self._available_models: Optional[List[str]] = None
+
+    def _get_available_models(self) -> List[str]:
+        if self._available_models is not None:
+            return self._available_models
+            
+        try:
+            # We must use configure here for listing models, but it affects global state unfortunately.
+            # In google.generativeai, list_models requires configure.
+            genai.configure(api_key=self.api_key)
+            self._available_models = [
+                m.name.replace("models/", "")
+                for m in genai.list_models()
+                if "generateContent" in m.supported_generation_methods
+            ]
+        except Exception as e:
+            logger.warning(f"Could not fetch available Gemini models: {e}")
+            self._available_models = []
+            
+        return self._available_models
 
     def generate_text(self, prompt: str, mock_ai: bool = False, model_hint: str = "") -> str:
         """
@@ -82,13 +85,7 @@ class AIGateway:
         if mock_ai:
             return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
 
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY missing in environment.")
-
-        genai.configure(api_key=api_key)
-
-        available_models = get_available_models(api_key)
+        available_models = self._get_available_models()
         preferred_order = [
             "gemini-2.5-flash",
             "gemini-1.5-flash",
@@ -103,26 +100,29 @@ class AIGateway:
         if not models_to_try:
             models_to_try = ["gemini-pro"]
 
+        # For generation, we pass api_key directly in request_options to prevent global collision issues.
+        request_options = {"api_key": self.api_key}
+
         for model_name in models_to_try:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
+                    response = model.generate_content(prompt, request_options=request_options)
                     return response.text
                 except Exception as e:
                     error_type, retry_after_sec = classify_exception(e)
 
                     if error_type == "fatal":
-                        print(f"  [!] {model_name} fatal error for '{model_hint}': {e}. Skipping model.")
+                        logger.error(f"{model_name} fatal error for '{model_hint}': {e}. Skipping model.")
                         break  # Stop retrying this model, jump to next model in cascade
 
                     # Transient error handling with exponential backoff + jitter
                     if attempt < max_retries - 1:
                         backoff = retry_after_sec or (2 ** attempt + random.uniform(0.1, 0.5))
-                        print(f"  [!] {model_name} transient error (429/503): {e}. Retrying in {backoff:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        logger.warning(f"{model_name} transient error (429/503): {e}. Retrying in {backoff:.1f}s (attempt {attempt + 1}/{max_retries})...")
                         time.sleep(backoff)
                     else:
-                        print(f"  [!] {model_name} failed after {max_retries} attempts. Trying next model in cascade...")
+                        logger.warning(f"{model_name} failed after {max_retries} attempts. Trying next model in cascade...")
 
         raise RuntimeError(f"All Gemini models failed to generate text for '{model_hint}' due to API errors.")

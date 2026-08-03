@@ -30,9 +30,9 @@ class ContentGenerator:
     CACHE_NAMESPACE = "llm_rendered_bullets"
     PROMPT_VERSION = "render-v1.0"
 
-    def __init__(self, ai_gateway: Optional[AIGateway] = None, cache_manager: Optional[CacheManager] = None):
-        self.ai = ai_gateway or AIGateway()
-        self.cache = cache_manager or CacheManager()
+    def __init__(self, ai_gateway: AIGateway, cache_manager: CacheManager):
+        self.ai = ai_gateway
+        self.cache = cache_manager
 
     def _fingerprint(self, project: Project, target: str) -> str:
         # Create a deterministic payload for hashing based ONLY on semantic inputs

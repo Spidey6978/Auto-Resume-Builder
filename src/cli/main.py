@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import logging
 from dotenv import load_dotenv
 
 # Ensure src root is in sys.path
@@ -49,6 +50,14 @@ def main():
     )
     args = parser.parse_args()
 
+    # Configure root logging for core modules
+    # We set level to WARNING by default so it doesn't spam the CLI, 
+    # but captures errors/warnings from core modules.
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="  [!] %(levelname)s - %(name)s - %(message)s"
+    )
+
     print("=========================================")
     print("        Auto Resume Builder CLI          ")
     print("=========================================")
@@ -68,9 +77,13 @@ def main():
     if not github_token and args.sync:
         print("  [!] Warning: GITHUB_TOKEN not set. Sync may fail due to rate limits.")
 
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+    if not gemini_api_key and not args.mock_ai:
+        print("  [!] Error: GEMINI_API_KEY not set in environment.")
+        sys.exit(1)
+
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
-    ai_gateway = AIGateway()  # CacheManager is now internally initialized or unused directly by Gateway depending on implementation, actually we can pass it
-    ai_gateway.cache = cache_mgr
+    ai_gateway = AIGateway(api_key=gemini_api_key)
     
     # 2. Initialize Domain Services
     extractor = FactExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr)
@@ -92,13 +105,10 @@ def main():
     )
 
     # 4. Execute requested commands
-    # If no flags provided, default to --build
     should_build = args.build or not args.sync
 
     if args.sync:
         print(f"🔄 Syncing GitHub repository: {args.sync}")
-        # Build source_id like "github:user/repo"
-        # The adapter.fetch takes repo_url but it extracts user/repo. Let's pass the raw string
         result = pipeline.sync_github_project(args.sync, mock_ai=args.mock_ai)
         if result.success:
             print(f"  [OK] {result.message}")
@@ -110,6 +120,7 @@ def main():
         result = pipeline.build_resume(target="general", mock_ai=args.mock_ai)
         if result.success:
             print(f"  [OK] {result.message}")
+            print(f"  📄 PDF generated at: {result.pdf_path}")
         else:
             print(f"  [!] {result.message}")
 

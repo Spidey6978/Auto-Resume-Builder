@@ -1,7 +1,11 @@
 import os
-from typing import List, Optional
+import yaml
+import logging
+from typing import Dict, Any, List, Optional
 from models.domain import CanonicalProfile, Project, Fact
 from core.fact_extractor import ExtractionResult, ExtractionStatus
+
+logger = logging.getLogger(__name__)
 
 class ProfileManager:
     """
