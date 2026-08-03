@@ -211,6 +211,7 @@ class TargetContext:
     domain: Optional[str] = None
     specialization: Optional[str] = None
     career_stage: Optional[str] = None
+    document_type: str = "industry_resume"
     hard_skills: List[str] = field(default_factory=list)
     implied_traits: List[str] = field(default_factory=list)
     

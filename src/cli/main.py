@@ -118,10 +118,15 @@ def main():
     # Initialize TargetLoader
     from core.target_loader import TargetLoader
     from core.target_engine import TargetEngine
+    from core.knowledge.evaluator import PolicyEvaluator
+    from core.fact_ranker import FactRanker
+    
+    policy_evaluator = PolicyEvaluator(store=knowledge_store)
+    fact_ranker = FactRanker(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     
     targets_dir = os.path.join(base_dir, "data", "targets")
     target_loader = TargetLoader(targets_dir=targets_dir, target_resolver=target_resolver)
-    target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr)
+    target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr, policy_evaluator=policy_evaluator, fact_ranker=fact_ranker)
 
     # 3. Inject into Pipeline Orchestrator
     pipeline = BuildPipeline(

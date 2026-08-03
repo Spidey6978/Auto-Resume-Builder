@@ -19,9 +19,9 @@ class PlannedExperience:
 
 @dataclass
 class ResolvedPolicies:
-    # This will be populated in Milestone 3.3 when we implement the PolicyEvaluator
-    page_policy: Dict[str, Any] = field(default_factory=dict)
-    section_order: List[str] = field(default_factory=list)
+    # Evaluated generic policies (key = policy id, value = recommendation dict)
+    policies: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # Evaluated priorities (ordered list of dicts)
     active_priorities: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass
