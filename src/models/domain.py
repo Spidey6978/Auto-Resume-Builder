@@ -205,7 +205,16 @@ class TargetRule:
 @dataclass
 class TargetContext:
     id: str
-    description: str
+    description: str # The raw Job Description text or a general goal
+    
+    # Semantic fields extracted from JD (populated by TargetResolver)
+    domain: Optional[str] = None
+    specialization: Optional[str] = None
+    career_stage: Optional[str] = None
+    hard_skills: List[str] = field(default_factory=list)
+    implied_traits: List[str] = field(default_factory=list)
+    
+    # Explicit rules
     project_rules: TargetRule = field(default_factory=TargetRule)
     experience_rules: TargetRule = field(default_factory=TargetRule)
 

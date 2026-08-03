@@ -105,12 +105,22 @@ def main():
     templates_dir = os.path.join(base_dir, "templates")
     compiler = ResumeCompiler(templates_dir=templates_dir)
 
+    # Initialize KnowledgeStore
+    from core.knowledge.store import KnowledgeStore
+    knowledge_dir = os.path.join(base_dir, "data", "knowledge")
+    knowledge_store = KnowledgeStore(knowledge_dir=knowledge_dir)
+
+    # Initialize TargetResolver
+    from core.target_resolver import JobDescriptionExtractor, TargetResolver
+    extractor_service = JobDescriptionExtractor(ai_gateway=ai_gateway)
+    target_resolver = TargetResolver(extractor=extractor_service, knowledge_store=knowledge_store)
+
     # Initialize TargetLoader
     from core.target_loader import TargetLoader
     from core.target_engine import TargetEngine
     
     targets_dir = os.path.join(base_dir, "data", "targets")
-    target_loader = TargetLoader(targets_dir=targets_dir)
+    target_loader = TargetLoader(targets_dir=targets_dir, target_resolver=target_resolver)
     target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr)
 
     # 3. Inject into Pipeline Orchestrator
