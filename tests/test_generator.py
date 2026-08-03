@@ -1,12 +1,12 @@
 from unittest.mock import MagicMock
 from core.generator import ContentGenerator, GenerationStatus
-from models.domain import Project, Fact
+from models.domain import Project, Fact, TargetContext
 
 def test_generator_insufficient_data():
     generator = ContentGenerator(ai_gateway=MagicMock(), cache_manager=MagicMock())
     project = Project(id="1", name="No Facts", facts=[])
-    
-    result = generator.generate_project_bullets(project)
+    target = TargetContext(id="test", description="desc")
+    result = generator.generate_project_bullets(project, target=target)
     
     assert result.status == GenerationStatus.INSUFFICIENT_DATA
     assert result.bullets == []
@@ -25,8 +25,8 @@ def test_generator_success():
         name="Backend Repo", 
         facts=[Fact(id="f1", text="backend", fact_type="general", source_refs=["github"])]
     )
-    
-    result = generator.generate_project_bullets(project)
+    target = TargetContext(id="test", description="desc")
+    result = generator.generate_project_bullets(project, target=target)
     
     assert result.status == GenerationStatus.SUCCESS
     assert len(result.bullets) == 2
@@ -43,8 +43,8 @@ def test_generator_cache_hit():
     
     generator = ContentGenerator(ai_gateway=mock_ai, cache_manager=mock_cache)
     project = Project(id="1", name="Repo", facts=[Fact(id="f1", text="f", fact_type="general", source_refs=["github"])])
-    
-    result = generator.generate_project_bullets(project)
+    target = TargetContext(id="test", description="desc")
+    result = generator.generate_project_bullets(project, target=target)
     
     assert result.status == GenerationStatus.SUCCESS
     assert result.bullets == ["Cached bullet 1", "Cached bullet 2"]

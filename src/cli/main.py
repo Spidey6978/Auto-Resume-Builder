@@ -39,6 +39,16 @@ def main():
         help="Build the PDF resume from the canonical profile.",
     )
     parser.add_argument(
+        "--target",
+        type=str,
+        help="Name of a loadout in data/targets/ (e.g., 'backend')",
+    )
+    parser.add_argument(
+        "--job",
+        type=str,
+        help="Path to a raw job description txt file",
+    )
+    parser.add_argument(
         "--mock-ai",
         action="store_true",
         help="Skip Gemini API calls and use simulated placeholder responses.",
@@ -95,6 +105,11 @@ def main():
     templates_dir = os.path.join(base_dir, "templates")
     compiler = ResumeCompiler(templates_dir=templates_dir)
 
+    # Initialize TargetLoader
+    from core.target_loader import TargetLoader
+    targets_dir = os.path.join(base_dir, "data", "targets")
+    target_loader = TargetLoader(targets_dir=targets_dir)
+
     # 3. Inject into Pipeline Orchestrator
     pipeline = BuildPipeline(
         profile_manager=profile_manager,
@@ -116,8 +131,16 @@ def main():
             print(f"  [!] {result.message}")
 
     if should_build:
+        print("🎯 Loading Target Context...")
+        try:
+            target_context = target_loader.load_target(target_name=args.target, job_path=args.job)
+            print(f"  [OK] Targeted for: {target_context.id}")
+        except Exception as e:
+            print(f"  [!] Failed to load target: {e}")
+            sys.exit(1)
+
         print("🔨 Building Resume PDF...")
-        result = pipeline.build_resume(target="general", mock_ai=args.mock_ai)
+        result = pipeline.build_resume(target=target_context, mock_ai=args.mock_ai)
         if result.success:
             print(f"  [OK] {result.message}")
             print(f"  📄 PDF generated at: {result.pdf_path}")

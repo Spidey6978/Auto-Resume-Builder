@@ -11,6 +11,7 @@ from core.compiler import ResumeCompiler
 from adapters.github_adapter import GitHubAdapter
 from core.normalizer import normalize_languages
 from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
+from models.domain import TargetContext
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class BuildPipeline:
         except Exception as e:
             return SyncResult(False, f"Sync failed: {e}")
 
-    def create_document(self, target: str = "general", mock_ai: bool = False) -> ResumeDocument:
+    def create_document(self, target: TargetContext, mock_ai: bool = False) -> ResumeDocument:
         """
         LOAD canonical profile -> GENERATE presentation content -> construct ResumeDocument
         """
@@ -138,7 +139,7 @@ class BuildPipeline:
             skills=profile.skills
         )
 
-    def build_resume(self, target: str = "general", mock_ai: bool = False) -> BuildResult:
+    def build_resume(self, target: TargetContext, mock_ai: bool = False) -> BuildResult:
         """
         Builds the presentation document, sets up a unique workspace, and compiles the PDF.
         """

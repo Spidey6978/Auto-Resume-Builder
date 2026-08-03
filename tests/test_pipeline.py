@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 from core.pipeline import BuildPipeline
-from models.domain import CanonicalProfile, Project, Fact
+from models.domain import CanonicalProfile, Project, Fact, TargetContext
 from models.presentation import ResumeDocument
 
 def test_pipeline_build_resume():
@@ -27,8 +27,8 @@ def test_pipeline_build_resume():
         compiler=mock_compiler
     )
     
-    # 2. Execute
-    result = pipeline.build_resume()
+    target = TargetContext(id="test", description="desc")
+    result = pipeline.build_resume(target=target)
     
     # 3. Assertions
     assert result.success is True

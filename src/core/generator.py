@@ -1,9 +1,10 @@
 import json
+import hashlib
 from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
 
-from models.domain import Project, Fact
+from models.domain import Project, Fact, TargetContext
 from core.ai_gateway import AIGateway
 from core.cache import CacheManager
 
@@ -34,41 +35,46 @@ class ContentGenerator:
         self.ai = ai_gateway
         self.cache = cache_manager
 
-    def _fingerprint(self, project: Project, target: str) -> str:
+    def _fingerprint(self, project: Project, target: TargetContext) -> str:
         # Create a deterministic payload for hashing based ONLY on semantic inputs
+        # (project facts and target role).
+        
+        # Sort facts by ID to ensure order doesn't affect hash
+        sorted_facts = sorted(project.facts, key=lambda f: f.id)
+        
+        # We only hash the content of the facts, ignoring source provenance
+        fact_payload = [{"id": f.id, "text": f.text, "type": f.fact_type, "metric": f.metric} for f in sorted_facts]
+        
         payload = {
-            "version": self.PROMPT_VERSION,
-            "target": target,
-            "project_id": project.id,
-            "tech_stack": sorted(project.tech_stack),
-            "facts": [
-                {
-                    "id": f.id,
-                    "text": f.text,
-                    "metric": f.metric
-                }
-                for f in sorted(project.facts, key=lambda x: x.id)
-            ]
+            "project_name": project.name,
+            "target_id": target.id,
+            "target_desc": target.description,
+            "facts": fact_payload,
+            "prompt_version": self.PROMPT_VERSION
         }
+        
         payload_str = json.dumps(payload, sort_keys=True)
-        return CacheManager.hash_key(payload_str)
+        return hashlib.sha256(payload_str.encode('utf-8')).hexdigest()
 
-    def generate_project_bullets(self, project: Project, target: str = "general", mock_ai: bool = False) -> GenerationResult:
+    def generate_project_bullets(self, project: Project, target: TargetContext, mock_ai: bool = False) -> GenerationResult:
         """
-        Generates ATS-optimized resume bullets from a Project's facts.
+        Generates 2 highly condensed, ATS-optimized bullets for a single project,
+        using ONLY the objective facts provided in the domain model.
         """
+        # If there are no facts, we cannot generate truthful bullets.
         if not project.facts:
-            return GenerationResult(bullets=[], status=GenerationStatus.INSUFFICIENT_DATA)
-
+            return GenerationResult([], GenerationStatus.INSUFFICIENT_DATA)
+            
         cache_key = self._fingerprint(project, target)
-        cached = self.cache.get(self.CACHE_NAMESPACE, cache_key)
-        if cached is not None and isinstance(cached, list):
-            return GenerationResult(bullets=cached, status=GenerationStatus.SUCCESS)
-
-        # Build context
+        
+        cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
+        if cached_bullets:
+            return GenerationResult(cached_bullets, GenerationStatus.SUCCESS)
+            
+        # Fact payload for the LLM
+        fact_text = "\n".join([f"- [{f.fact_type}] {f.text} (Metric: {f.metric or 'N/A'})" for f in project.facts])
         tech_context = ", ".join(project.tech_stack) if project.tech_stack else "None specified"
-        facts_text = "\n".join(f"- {f.text} (Metric: {f.metric or 'None'})" for f in project.facts)
-
+        
         prompt = f"""
         You are an elite ATS resume writer and senior engineering recruiter.
         Your task is to generate concise resume bullets emphasizing technical impact and relevant terminology.
@@ -78,10 +84,10 @@ class ContentGenerator:
         Project Context:
         Name: {project.name}
         Technologies: {tech_context}
-        Target Role Focus: {target}
+        Target Role Focus: {target.description}
         
         Extracted Facts:
-        {facts_text}
+        {fact_text}
         
         Rules:
         - Generate exactly 2 professional, highly technical resume bullet points.

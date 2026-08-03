@@ -196,6 +196,20 @@ class SourceResult:
 
 
 @dataclass
+class TargetRule:
+    exclude: List[str] = field(default_factory=list)
+    include_only: List[str] = field(default_factory=list)
+
+@dataclass
+class TargetContext:
+    id: str
+    description: str
+    project_rules: TargetRule = field(default_factory=TargetRule)
+    experience_rules: TargetRule = field(default_factory=TargetRule)
+
+
+
+@dataclass
 class CanonicalProfile:
     """
     Top-level domain model representing a user's canonical professional knowledge.

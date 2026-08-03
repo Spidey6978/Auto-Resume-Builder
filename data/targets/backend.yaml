@@ -1,0 +1,10 @@
+name: "Backend Engineer"
+description: "Senior backend engineering role focusing on distributed systems, databases, and API design."
+rules:
+  projects:
+    exclude:
+      - "frontend-react-app"
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []
