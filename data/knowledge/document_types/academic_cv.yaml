@@ -1,0 +1,39 @@
+schema_version: "1.0"
+id: "academic_cv"
+type: "document_type"
+
+policies:
+  - id: "page_policy"
+    strength: "absolute_requirement"
+    recommendation:
+      pages: "unrestricted"
+      hard_max_pages: null
+    evidence_refs: ["acad_src_1"]
+    
+  - id: "section_ordering"
+    strength: "strong_recommendation"
+    recommendation:
+      default_order: ["education", "publications", "grants", "teaching_experience"]
+    conditions:
+      - condition: "target_role_type == 'teaching'"
+        recommendation:
+          default_order: ["education", "teaching_experience", "publications", "grants"]
+        evidence_refs: ["acad_src_2"]
+
+priorities:
+  - id: "publications"
+    importance: "high"
+    evidence_refs: ["acad_src_3"]
+
+disputed_guidance: []
+
+sources:
+  acad_src_1:
+    title: "Oxford University Careers Service"
+    source_type: "university_career_service"
+  acad_src_2:
+    title: "Zheng Zhang (Faculty Search Committee Member)"
+    source_type: "employer_first_party"
+  acad_src_3:
+    title: "MIT Career Advising"
+    source_type: "university_career_service"

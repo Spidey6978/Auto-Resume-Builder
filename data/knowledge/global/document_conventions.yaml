@@ -1,0 +1,20 @@
+schema_version: "1.0"
+id: "document_conventions"
+type: "global"
+
+policies:
+  - id: "page_policy"
+    strength: "strong_recommendation"
+    recommendation:
+      pages: 1
+      hard_max_pages: null
+    conditions:
+      - condition: "substantial_relevant_history"
+        recommendation:
+          pages: 2
+
+priorities: []
+
+disputed_guidance: []
+
+sources: {}

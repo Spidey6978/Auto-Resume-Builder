@@ -1,0 +1,43 @@
+schema_version: "1.0"
+id: "management_consulting"
+type: "domain"
+
+priorities:
+  - id: "business_impact"
+    importance: "high"
+    evidence_refs: ["consulting_src_1"]
+  - id: "leadership"
+    importance: "high"
+    evidence_refs: ["consulting_src_2"]
+  - id: "standardized_tests"
+    importance: "high"
+    evidence_refs: ["consulting_src_3"]
+
+policies: []
+
+disputed_guidance:
+  - id: "gpa_inclusion"
+    positions:
+      - recommendation:
+          include_if_above: 3.5
+        evidence_refs: ["consulting_src_4"]
+      - recommendation:
+          never_omit: true
+        evidence_refs: ["consulting_src_5"]
+
+sources:
+  consulting_src_1:
+    title: "Yale School of Management Career Development"
+    source_type: "university_career_service"
+  consulting_src_2:
+    title: "McKinsey & Company Careers Blog"
+    source_type: "employer_first_party"
+  consulting_src_3:
+    title: "CaseInterview.com"
+    source_type: "recruiting_platform"
+  consulting_src_4:
+    title: "Resume Optimizer Pro"
+    source_type: "recruiting_platform"
+  consulting_src_5:
+    title: "Victor Cheng (CaseInterview.com)"
+    source_type: "recruiting_platform"
