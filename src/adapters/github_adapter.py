@@ -107,6 +107,7 @@ class GitHubAdapter(BaseAdapter):
             "name": clean_name,
             "raw_name": data['name'],
             "tech_stack": ", ".join(tech_stack) if tech_stack else "Various",
+            "languages": langs_data if (langs_url and langs_data and isinstance(langs_data, dict)) else {},
             "link": data.get('html_url', f"https://github.com/{username}/{repo_name}"),
             "readme_content": readme_content,
             "description": data.get('description', "No description provided.")

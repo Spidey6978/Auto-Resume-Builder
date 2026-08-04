@@ -4,10 +4,10 @@ import logging
 from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
 
-from src.models.domain import Fact, TargetContext, Project
-from src.core.ai_gateway import AIGateway
-from src.core.cache import CacheManager
-from src.models.plan import ResolvedPolicies
+from models.domain import Fact, TargetContext, Project
+from core.ai_gateway import AIGateway
+from core.cache import CacheManager
+from models.plan import ResolvedPolicies
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class FactRanker:
 
         return False
 
-    def _ai_rerank(self, scored_facts: List[ScoredFact], target: TargetContext, max_facts: int, mock_ai: bool = False) -> Tuple[List[Fact], str]:
+    def _ai_rerank(self, scored_facts: List[ScoredFact], target: TargetContext, max_facts: int, mock_ai: bool = False) -> Tuple[List[ScoredFact], str]:
         """
         Uses the AI to re-evaluate top plausible facts semantically.
         To save tokens, we only feed it the top (max_facts * 2) facts from the deterministic pass.
@@ -164,25 +164,25 @@ Example: ["fact_1", "fact_3", "fact_2"]
             if selected_ids:
                 self.cache.set(self.CACHE_NAMESPACE, cache_key, selected_ids)
                 
-            fact_map = {sf.fact.id: sf.fact for sf in candidates}
+            fact_map = {sf.fact.id: sf for sf in candidates}
             selected_facts = [fact_map[fid] for fid in selected_ids if fid in fact_map]
             
             if selected_facts:
                 return selected_facts[:max_facts], "ai_reranked"
                 
             # Parsing failed fallback
-            return [sf.fact for sf in scored_facts[:max_facts]], "fallback_deterministic"
+            return scored_facts[:max_facts], "fallback_deterministic"
             
         except Exception as e:
             logger.error(f"Semantic reranking failed: {e}")
-            return [sf.fact for sf in scored_facts[:max_facts]], "fallback_deterministic"
+            return scored_facts[:max_facts], "fallback_deterministic"
 
-    def rank_facts(self, project: Project, target: TargetContext, policies: ResolvedPolicies, mock_ai: bool = False, max_facts: int = 5) -> Tuple[List[Fact], str]:
+    def rank_facts(self, project: Project, target: TargetContext, policies: ResolvedPolicies, mock_ai: bool = False, max_facts: int = 5) -> Tuple[List[ScoredFact], str]:
         """
         Main entry point for ranking facts.
         """
         if len(project.facts) <= max_facts:
-            return project.facts, "success_unfiltered"
+            return [ScoredFact(fact=f, score=0.0, reasons=["unfiltered_passthrough"]) for f in project.facts], "success_unfiltered"
 
         # 1. Deterministic Scoring
         scored_facts = [self._deterministic_score(f, target, policies) for f in project.facts]
@@ -197,4 +197,4 @@ Example: ["fact_1", "fact_3", "fact_2"]
             
         # 3. Fast path: Deterministic is confident
         logger.info(f"FactRanker: Deterministic ranking confident for project '{project.id}'.")
-        return [sf.fact for sf in scored_facts[:max_facts]], "deterministic_confident"
+        return scored_facts[:max_facts], "deterministic_confident"

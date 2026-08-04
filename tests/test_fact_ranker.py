@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
-from src.core.fact_ranker import FactRanker, ScoredFact
-from src.models.domain import Fact, TargetContext, Project
-from src.models.plan import ResolvedPolicies
+from core.fact_ranker import FactRanker, ScoredFact
+from models.domain import Fact, TargetContext, Project
+from models.plan import ResolvedPolicies
 
 def test_deterministic_scoring():
     ranker = FactRanker(ai_gateway=MagicMock(), cache_manager=MagicMock())
@@ -116,6 +116,6 @@ def test_rank_facts_deterministic_confident():
     assert status == "deterministic_confident"
     assert len(best_facts) == 4
     # f6 and f1 should be dropped
-    ids = [f.id for f in best_facts]
+    ids = [f.fact.id for f in best_facts]
     assert "f6" not in ids
     assert "f1" not in ids

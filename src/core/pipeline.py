@@ -54,10 +54,28 @@ class BuildPipeline:
         INGEST -> EXTRACT -> NORMALIZE -> MERGE -> SAVE
         """
         try:
+            # Parse username/repo from URL
+            parts = repo_url.rstrip("/").split("/")
+            if len(parts) < 2:
+                return SyncResult(False, "Invalid GitHub URL")
+            username, repo_name = parts[-2], parts[-1]
+
             # 1. Ingest
-            source_result = self.github.fetch(repo_url)
-            if source_result.status != "success":
+            repo_data = self.github.get_repo_data(username, repo_name)
+            if not repo_data:
                 return SyncResult(False, f"Failed to fetch GitHub repo: {repo_url}")
+                
+            from adapters.base import SourceResult
+            source_result = SourceResult(
+                source_id=f"github/{username}/{repo_name}",
+                raw_content=repo_data.get("readme_content", ""),
+                metadata={
+                    "name": repo_data.get("raw_name", repo_name),
+                    "html_url": repo_data.get("link", repo_url),
+                    "languages": repo_data.get("languages", {})
+                },
+                status="success"
+            )
                 
             # 2. Extract Facts
             extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
@@ -142,18 +160,59 @@ class BuildPipeline:
                 bullets=[]
             ))
             
+        # Retrieve section_order from policies, or use a default
+        resolved_order_policy = plan.policies.policies.get("page_policy") if plan.policies else None
+        section_order_dict = plan.policies.policies.get("section_order") if plan.policies else None
+        section_order = section_order_dict.get("order") if (section_order_dict and "order" in section_order_dict) else ["summary", "education", "experience", "projects", "awards", "technical_skills"]
+        page_policy = resolved_order_policy or {"pages": 1}
+
         return ResumeDocument(
             personal=raw_profile.personal,
             education=raw_profile.education,
             experience=rendered_experience,
             awards=rendered_awards,
             projects=rendered_projects,
-            skills=raw_profile.skills
+            skills=raw_profile.skills,
+            section_order=section_order,
+            page_policy=page_policy
         )
+
+    def _trim_lowest_priority_bullet(self, document: ResumeDocument) -> bool:
+        """
+        Finds the RenderedBullet with the lowest relevance_score across all projects and experiences
+        and removes it. Returns True if a bullet was removed, False if no bullets are left to remove.
+        """
+        lowest_score = float('inf')
+        target_list = None
+        target_index = -1
+        
+        # Check projects
+        for proj in document.projects:
+            for i, bullet in enumerate(proj.bullets):
+                if bullet.relevance_score < lowest_score:
+                    lowest_score = bullet.relevance_score
+                    target_list = proj.bullets
+                    target_index = i
+                    
+        # Check experiences (if they have bullets)
+        for exp in document.experience:
+            for i, bullet in enumerate(exp.bullets):
+                if bullet.relevance_score < lowest_score:
+                    lowest_score = bullet.relevance_score
+                    target_list = exp.bullets
+                    target_index = i
+                    
+        if target_list is not None and target_index != -1:
+            removed = target_list.pop(target_index)
+            logger.info(f"OverflowResolver: Removed bullet '{removed.text[:30]}...' with score {removed.relevance_score}")
+            return True
+            
+        return False
 
     def build_resume(self, target: TargetContext, mock_ai: bool = False) -> BuildResult:
         """
         Builds the presentation document, sets up a unique workspace, and compiles the PDF.
+        Implements an overflow resolution loop to enforce page limits.
         """
         try:
             document = self.create_document(target=target, mock_ai=mock_ai)
@@ -161,8 +220,31 @@ class BuildPipeline:
             build_id = uuid.uuid4().hex
             output_dir = os.path.join(os.path.dirname(self.compiler.templates_dir), "build", build_id)
             
-            pdf_path = self.compiler.compile_resume(document, output_dir=output_dir)
-            return BuildResult(True, pdf_path, "Resume compiled successfully")
+            max_iterations = 5
+            allowed_pages = document.page_policy.get("pages", 1) if document.page_policy else 1
+            
+            for iteration in range(max_iterations):
+                logger.info(f"Build Pipeline: Compiling iteration {iteration + 1} (Target pages: {allowed_pages})")
+                compilation_result = self.compiler.compile_resume(document, output_dir=output_dir)
+                
+                if not compilation_result.success:
+                    return BuildResult(False, None, "LaTeX compilation failed.")
+                    
+                actual_pages = compilation_result.page_count
+                if actual_pages <= allowed_pages:
+                    logger.info(f"Build Pipeline: Document fits in {actual_pages} pages. Done.")
+                    return BuildResult(True, compilation_result.pdf_path, "Resume compiled successfully")
+                    
+                logger.warning(f"Build Pipeline: Overflow detected ({actual_pages} > {allowed_pages} pages). Attempting to trim...")
+                
+                # Try to remove the lowest priority bullet
+                trimmed = self._trim_lowest_priority_bullet(document)
+                if not trimmed:
+                    logger.warning("Build Pipeline: Could not find any bullets to trim. Stopping overflow resolution.")
+                    break
+                    
+            return BuildResult(True, compilation_result.pdf_path, f"Compiled successfully, but may exceed {allowed_pages} pages after max trimming iterations.")
+            
         except Exception as e:
-            logger.error(f"Compilation failed: {e}")
+            logger.error(f"Compilation failed: {e}", exc_info=True)
             return BuildResult(False, None, f"Compilation failed: {e}")

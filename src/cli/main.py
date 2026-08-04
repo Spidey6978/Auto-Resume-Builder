@@ -152,7 +152,7 @@ def main():
     if should_build:
         print("🎯 Loading Target Context...")
         try:
-            target_context = target_loader.load_target(target_name=args.target, job_path=args.job)
+            target_context = target_loader.load_target(target_name=args.target, job_path=args.job, mock_ai=args.mock_ai)
             print(f"  [OK] Targeted for: {target_context.id}")
         except Exception as e:
             print(f"  [!] Failed to load target: {e}")

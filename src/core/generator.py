@@ -17,9 +17,11 @@ class GenerationStatus(str, Enum):
     AI_ERROR = "ai_error"
 
 
+from models.presentation import RenderedBullet
+
 @dataclass
 class GenerationResult:
-    bullets: List[str]
+    bullets: List[RenderedBullet]
     status: GenerationStatus
     error: Optional[str] = None
 
@@ -84,9 +86,21 @@ class ContentGenerator:
             
         cache_key = self._fingerprint(temp_proj, target)
         
-        cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
-        if cached_bullets:
-            return GenerationResult(cached_bullets, GenerationStatus.SUCCESS)
+        cached_text = self.cache.get(self.CACHE_NAMESPACE, cache_key)
+        if cached_text:
+            rendered_bullets = []
+            for i, text in enumerate(cached_text):
+                if i < len(planned_project.selected_facts):
+                    pf = planned_project.selected_facts[i]
+                    rb = RenderedBullet(
+                        text=text,
+                        source_fact_ids=[pf.fact_id],
+                        relevance_score=pf.relevance_score
+                    )
+                else:
+                    rb = RenderedBullet(text=text, source_fact_ids=[], relevance_score=0.0)
+                rendered_bullets.append(rb)
+            return GenerationResult(rendered_bullets, GenerationStatus.SUCCESS)
             
         # Fact payload for the LLM
         fact_text = "\n".join([f"- [{f.fact_type}] {f.text} (Metric: {f.metric or 'N/A'})" for f in selected_facts])
@@ -121,11 +135,31 @@ class ContentGenerator:
             return GenerationResult(bullets=[], status=GenerationStatus.AI_ERROR, error=str(e))
 
         # Clean bullets
-        bullets = response_text.strip().split("\n")
-        cleaned_bullets = [b.lstrip("- *•").strip() for b in bullets if b.strip()][:2]
+        bullets_text = response_text.strip().split("\n")
+        cleaned_text = [b.lstrip("- *•").strip() for b in bullets_text if b.strip()]
 
-        if not cleaned_bullets:
+        if not cleaned_text:
             return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty response")
 
-        self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_bullets)
-        return GenerationResult(bullets=cleaned_bullets, status=GenerationStatus.SUCCESS)
+        # Map to RenderedBullet
+        rendered_bullets = []
+        for i, text in enumerate(cleaned_text):
+            # Try to associate with the corresponding PlannedFact by index
+            if i < len(planned_project.selected_facts):
+                pf = planned_project.selected_facts[i]
+                rb = RenderedBullet(
+                    text=text,
+                    source_fact_ids=[pf.fact_id],
+                    relevance_score=pf.relevance_score
+                )
+            else:
+                # Fallback if LLM generated extra bullets
+                rb = RenderedBullet(
+                    text=text,
+                    source_fact_ids=[],
+                    relevance_score=0.0
+                )
+            rendered_bullets.append(rb)
+
+        self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_text)
+        return GenerationResult(bullets=rendered_bullets, status=GenerationStatus.SUCCESS)

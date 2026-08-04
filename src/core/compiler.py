@@ -1,7 +1,17 @@
 import os
 import subprocess
+import logging
+from dataclasses import dataclass
 from jinja2 import Environment, FileSystemLoader
 from core.sanitizer import escape_latex, sanitize_data
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class CompilationResult:
+    pdf_path: str
+    page_count: int
+    success: bool
 
 
 class ResumeCompiler:
@@ -26,19 +36,22 @@ class ResumeCompiler:
         template = self.env.get_template(template_name)
         return template.render(safe_data)
 
-    def compile_pdf(self, tex_path: str) -> bool:
+    def compile_pdf(self, tex_path: str) -> CompilationResult:
         """
         Compiles a .tex file into a PDF using LuaLaTeX.
-        Returns True if successful, False otherwise.
+        Returns CompilationResult with success status and page count.
         """
-        if os.getenv("GITHUB_ACTIONS") == "true":
-            print("  [CI/CD] Running in GitHub Actions. Skipping local LuaLaTeX compilation.")
-            return True
-
         output_dir = os.path.dirname(tex_path)
-        print("  Compiling LaTeX to PDF...")
+        pdf_path = tex_path.replace(".tex", ".pdf")
+        log_path = tex_path.replace(".tex", ".log")
+        
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            logger.info("[CI/CD] Running in GitHub Actions. Skipping local LuaLaTeX compilation.")
+            return CompilationResult(pdf_path=pdf_path, page_count=1, success=True)
+
+        logger.info("Compiling LaTeX to PDF...")
         try:
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "lualatex",
                     "-interaction=nonstopmode",
@@ -50,17 +63,34 @@ class ResumeCompiler:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
-            print("  [OK] PDF compilation successful.")
-            return True
+            logger.info("PDF compilation successful.")
+            page_count = self._extract_page_count(log_path)
+            return CompilationResult(pdf_path=pdf_path, page_count=page_count, success=True)
 
         except FileNotFoundError:
-            print("  [!] Error: 'lualatex' compiler not found in system PATH. Check LaTeX installation.")
-            return False
+            logger.error("Error: 'lualatex' compiler not found in system PATH. Check LaTeX installation.")
+            return CompilationResult(pdf_path=pdf_path, page_count=0, success=False)
         except subprocess.CalledProcessError as e:
-            print("  [!] Error: LuaLaTeX compilation failed. Check log file in build folder.")
-            return False
+            logger.error("Error: LuaLaTeX compilation failed. Check log file in build folder.")
+            return CompilationResult(pdf_path=pdf_path, page_count=0, success=False)
+            
+    def _extract_page_count(self, log_path: str) -> int:
+        if not os.path.exists(log_path):
+            return 0
+        try:
+            import re
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if "Output written on" in line and ".pdf" in line:
+                        match = re.search(r"\((\d+) pages?,", line)
+                        if match:
+                            return int(match.group(1))
+            return 0
+        except Exception as e:
+            logger.error(f"Failed to extract page count: {e}")
+            return 0
 
-    def compile_resume(self, document: 'ResumeDocument', output_dir: str) -> str:
+    def compile_resume(self, document: 'ResumeDocument', output_dir: str) -> CompilationResult:
         """
         Takes a highly structured ResumeDocument, renders it into LaTeX, 
         saves it into the specified output_dir, and compiles it into a PDF.
@@ -77,7 +107,5 @@ class ResumeCompiler:
         with open(tex_output_path, "w", encoding="utf-8") as f:
             f.write(rendered_tex)
             
-        print(f"  LaTeX file generated at: {tex_output_path}")
-        self.compile_pdf(tex_output_path)
-        
-        return os.path.join(output_dir, "resume.pdf")
+        logger.info(f"LaTeX file generated at: {tex_output_path}")
+        return self.compile_pdf(tex_output_path)

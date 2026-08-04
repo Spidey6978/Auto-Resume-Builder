@@ -1,9 +1,12 @@
 import logging
 from typing import Dict, Any, List
-from src.models.domain import CanonicalProfile, TargetContext
-from src.core.knowledge.store import KnowledgeStore
-from src.core.knowledge.models import KnowledgeComponent, ConditionalPolicy
-from src.models.plan import ResolvedPolicies
+from models.domain import CanonicalProfile, TargetContext, TargetRule
+from core.knowledge.models import (
+    KnowledgeComponent, Priority, RecommendationCondition as Condition,
+    ConditionalPolicy
+)
+from core.knowledge.store import KnowledgeStore
+from models.plan import ResolvedPolicies
 
 logger = logging.getLogger(__name__)
 

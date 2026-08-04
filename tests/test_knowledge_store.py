@@ -1,8 +1,10 @@
 import pytest
 import yaml
 from pathlib import Path
-from src.core.knowledge.store import KnowledgeStore
-from src.core.knowledge.models import PolicyStrength
+from core.knowledge.models import (
+    KnowledgeComponent, KnowledgeComponentType, PolicyStrength
+)
+from core.knowledge.store import KnowledgeStore
 
 @pytest.fixture
 def temp_knowledge_dir(tmp_path):

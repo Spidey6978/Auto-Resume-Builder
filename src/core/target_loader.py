@@ -17,14 +17,15 @@ class TargetLoader:
             include_only=data.get("include_only", [])
         )
 
-    def load_target(self, target_name: Optional[str] = None, job_path: Optional[str] = None) -> TargetContext:
-        """
+
+    def load_target(self, target_name: Optional[str] = None, job_path: Optional[str] = None, mock_ai: bool = False) -> TargetContext:
+        """Loads a TargetContext either from a job description file or a target YAML."""
         if job_path:
             if not os.path.exists(job_path):
                 raise FileNotFoundError(f"Job description file not found: {job_path}")
             with open(job_path, "r", encoding="utf-8") as f:
                 desc = f.read().strip()
-            return self.resolver.resolve(target_id=os.path.basename(job_path), raw_description=desc)
+            return self.resolver.resolve(target_id=os.path.basename(job_path), raw_description=desc, mock_ai=mock_ai)
             
         if target_name:
             # Look for targets/{target_name}.yaml
@@ -40,8 +41,9 @@ class TargetLoader:
                 target_id=target_name,
                 raw_description=data.get("description", "A general software engineering role."),
                 project_rules=self._parse_rule(rules_data.get("projects", {})),
-                experience_rules=self._parse_rule(rules_data.get("experience", {}))
+                experience_rules=self._parse_rule(rules_data.get("experience", {})),
+                mock_ai=mock_ai
             )
             
         # Default fallback
-        return self.resolver.resolve(target_id="general", raw_description="A general software engineering role.")
+        return self.resolver.resolve(target_id="general", raw_description="A general software engineering role.", mock_ai=mock_ai)

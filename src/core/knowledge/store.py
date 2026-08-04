@@ -2,7 +2,9 @@ import os
 import yaml
 from typing import Dict, Optional
 from pathlib import Path
-from src.core.knowledge.models import KnowledgeComponent
+from core.knowledge.models import (
+    KnowledgeComponent
+)
 
 class KnowledgeStore:
     def __init__(self, knowledge_dir: str):

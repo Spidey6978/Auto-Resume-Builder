@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
-from src.core.knowledge.evaluator import CandidateState, PolicyEvaluator
-from src.models.domain import CanonicalProfile, TargetContext, ExperienceItem, AwardItem, Project
-from src.core.knowledge.models import KnowledgeComponent, ConditionalPolicy, RecommendationCondition, Priority
+from core.knowledge.evaluator import CandidateState, PolicyEvaluator
+from models.domain import CanonicalProfile, TargetContext, ExperienceItem, AwardItem, Project
+from core.knowledge.models import (
+    KnowledgeComponent, ConditionalPolicy, RecommendationCondition, Priority
+)
 
 def test_candidate_state():
     profile = CanonicalProfile(

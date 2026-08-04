@@ -60,12 +60,20 @@ class TargetEngine:
         # Now score facts using FactRanker and domain knowledge
         for proj in filtered_projects:
             if self.ranker:
-                best_facts, status = self.ranker.rank_facts(proj, target, plan.policies, mock_ai=mock_ai)
+                scored_facts, status = self.ranker.rank_facts(proj, target, plan.policies, mock_ai=mock_ai)
             else:
+                from core.fact_ranker import ScoredFact
                 # Fallback if no ranker provided
-                best_facts, status = proj.facts[:5], "fallback_unranked"
+                scored_facts, status = [ScoredFact(fact=f, score=0.0, reasons=["fallback_unranked"]) for f in proj.facts[:5]], "fallback_unranked"
             
-            planned_facts = [PlannedFact(fact_id=f.id, targeting_status=status) for f in best_facts]
+            planned_facts = [
+                PlannedFact(
+                    fact_id=sf.fact.id, 
+                    relevance_score=sf.score, 
+                    reasons=sf.reasons, 
+                    targeting_status=status
+                ) for sf in scored_facts
+            ]
             
             planned_proj = PlannedProject(
                 project_id=proj.id,

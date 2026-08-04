@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
-from src.models.domain import TargetContext
+from models.domain import TargetContext
 
 @dataclass
 class PlannedFact:
     fact_id: str
+    relevance_score: float = 0.0
+    reasons: List[str] = field(default_factory=list)
     targeting_status: Optional[str] = None  # e.g., "success", "cache_hit", "fallback_unranked"
 
 @dataclass

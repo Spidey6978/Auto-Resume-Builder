@@ -36,8 +36,8 @@ def test_generator_success():
     
     assert result.status == GenerationStatus.SUCCESS
     assert len(result.bullets) == 2
-    assert result.bullets[0] == "Architected a backend system."
-    assert result.bullets[1] == "Optimized database queries."
+    assert result.bullets[0].text == "Architected a backend system."
+    assert result.bullets[1].text == "Optimized database queries."
     
     # Verify cache was set
     mock_cache.set.assert_called_once()
@@ -55,5 +55,6 @@ def test_generator_cache_hit():
     result = generator.generate_project_bullets(profile, planned_project, target=target)
     
     assert result.status == GenerationStatus.SUCCESS
-    assert result.bullets == ["Cached bullet 1", "Cached bullet 2"]
+    assert result.bullets[0].text == "Cached bullet 1"
+    assert result.bullets[1].text == "Cached bullet 2"
     mock_ai.generate_text.assert_not_called()  # Should not hit API

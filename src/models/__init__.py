@@ -15,7 +15,7 @@ from models.presentation import (
     RenderedAward,
     ResumeDocument,
 )
-from models.profile import ProfileData, ProjectItem
+
 
 __all__ = [
     "Fact",
@@ -31,6 +31,4 @@ __all__ = [
     "RenderedExperience",
     "RenderedAward",
     "ResumeDocument",
-    "ProfileData",
-    "ProjectItem",
 ]

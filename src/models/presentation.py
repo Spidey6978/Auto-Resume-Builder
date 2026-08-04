@@ -1,6 +1,13 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from models.domain import PersonalInfo, EducationItem
+
+@dataclass
+class RenderedBullet:
+    text: str
+    source_fact_ids: List[str] = field(default_factory=list)
+    relevance_score: float = 0.0
+
 
 @dataclass
 class RenderedProject:
@@ -8,7 +15,7 @@ class RenderedProject:
     name: str
     link: Optional[str]
     tech_stack: List[str]
-    bullets: List[str]
+    bullets: List[RenderedBullet]
 
 
 @dataclass
@@ -19,7 +26,7 @@ class RenderedExperience:
     location: Optional[str]
     start_date: str
     end_date: Optional[str]
-    bullets: List[str]
+    bullets: List[RenderedBullet]
 
 
 @dataclass
@@ -41,3 +48,5 @@ class ResumeDocument:
     awards: List[RenderedAward]
     projects: List[RenderedProject]
     skills: Dict[str, List[str]]
+    section_order: List[str] = field(default_factory=list)
+    page_policy: Dict[str, Any] = field(default_factory=dict)

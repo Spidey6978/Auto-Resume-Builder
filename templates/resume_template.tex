@@ -32,51 +32,56 @@
 \end{center}
 \vspace{2pt}
 
+\BLOCK{for section_name in section_order}
+
+\BLOCK{if section_name == 'summary' and summary}
 % --- SUMMARY ---
 \section*{Summary}
 \VAR{summary}
 \vspace{2pt}
 
+\BLOCK{elif section_name == 'education' and education and education|length > 0}
 % --- EDUCATION ---
 \section*{Education}
 \BLOCK{for edu in education}
-\noindent \textbf{\VAR{edu.school}} \hfill \VAR{edu.location} \\
-\textit{\VAR{edu.degree}} \hfill \VAR{edu.dates}
+\noindent \textbf{\VAR{edu.institution}} \hfill \VAR{edu.location} \\
+\textit{\VAR{edu.degree}} \hfill \VAR{edu.start_date} -- \VAR{edu.end_date or 'Present'}
 \vspace{2pt}
 \BLOCK{endfor}
 
+\BLOCK{elif section_name == 'awards' and awards and awards|length > 0}
 % --- HONORS & AWARDS ---
-\BLOCK{if awards and awards|length > 0}
 \section*{Honors \& Awards}
 \BLOCK{for award in awards}
 \noindent \textbf{\VAR{award.title}} --- \textit{\VAR{award.event}} \hfill \VAR{award.year}
 \BLOCK{if award.bullets and award.bullets|length > 0}
 \begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
     \BLOCK{for bullet in award.bullets}
-    \item \VAR{bullet}
+    \item \VAR{bullet.text}
     \BLOCK{endfor}
 \end{itemize}
 \BLOCK{endif}
 \vspace{2pt}
 \BLOCK{endfor}
-\BLOCK{endif}
 
+\BLOCK{elif section_name == 'experience' and experience and experience|length > 0}
 % --- EXPERIENCE ---
 \section*{Experience}
 \BLOCK{for job in experience}
-\noindent \textbf{\VAR{job.company}} \hfill \VAR{job.location} \\
-\textit{\VAR{job.title}} \hfill \VAR{job.dates}
+\noindent \textbf{\VAR{job.organization}} \hfill \VAR{job.location} \\
+\textit{\VAR{job.title}} \hfill \VAR{job.start_date} -- \VAR{job.end_date or 'Present'}
 \BLOCK{if job.bullets and job.bullets|length > 0}
 % Optimized padding: Not completely squished (like nosep), but tight enough to save space
 \begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
     \BLOCK{for bullet in job.bullets}
-    \item \VAR{bullet}
+    \item \VAR{bullet.text}
     \BLOCK{endfor}
 \end{itemize}
 \BLOCK{endif}
 \vspace{2pt}
 \BLOCK{endfor}
 
+\BLOCK{elif section_name == 'projects' and projects and projects|length > 0}
 % --- PROJECTS ---
 \section*{Projects}
 \BLOCK{for proj in projects}
@@ -86,19 +91,23 @@
 \BLOCK{if proj.bullets and proj.bullets|length > 0}
 \begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
     \BLOCK{for bullet in proj.bullets}
-    \item \VAR{bullet}
+    \item \VAR{bullet.text}
     \BLOCK{endfor}
 \end{itemize}
 \BLOCK{endif}
 \vspace{2pt}
 \BLOCK{endfor}
 
+\BLOCK{elif section_name == 'technical_skills' and skills}
 % --- TECHNICAL SKILLS ---
 \section*{Technical Skills}
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt, parsep=0pt, topsep=2pt]
-    \BLOCK{for skill_category, skills in technical_skills.items()}
-    \item \textbf{\VAR{skill_category | escape_latex}}: \VAR{skills}
+    \BLOCK{for skill_category, skill_list in skills.items()}
+    \item \textbf{\VAR{skill_category | escape_latex}}: \VAR{skill_list}
     \BLOCK{endfor}
 \end{itemize}
+
+\BLOCK{endif}
+\BLOCK{endfor}
 
 \end{document}

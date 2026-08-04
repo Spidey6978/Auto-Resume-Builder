@@ -13,11 +13,13 @@ def test_pipeline_build_resume():
     mock_generator = MagicMock()
     mock_generator_result = MagicMock()
     mock_generator_result.status = "success"
-    mock_generator_result.bullets = ["Bullet 1", "Bullet 2"]
+    from models.presentation import RenderedBullet
+    mock_generator_result.bullets = [RenderedBullet(text="Bullet 1"), RenderedBullet(text="Bullet 2")]
     mock_generator.generate_project_bullets.return_value = mock_generator_result
-    
+
     mock_compiler = MagicMock()
-    mock_compiler.compile_resume.return_value = "/build/resume.pdf"
+    from core.compiler import CompilationResult
+    mock_compiler.compile_resume.return_value = CompilationResult(pdf_path="/build/resume.pdf", page_count=1, success=True)
     
     mock_target_engine = MagicMock()
     from models.plan import ResumePlan, PlannedProject, PlannedFact
@@ -54,4 +56,5 @@ def test_pipeline_build_resume():
     
     assert isinstance(document, ResumeDocument)
     assert len(document.projects) == 1
-    assert document.projects[0].bullets == ["Bullet 1", "Bullet 2"]
+    assert document.projects[0].bullets[0].text == "Bullet 1"
+    assert document.projects[0].bullets[1].text == "Bullet 2"

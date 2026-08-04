@@ -1,9 +1,9 @@
 import json
 import logging
 from typing import Optional, List
-from src.models.domain import TargetContext, TargetRule
-from src.core.ai_gateway import AIGateway
-from src.core.knowledge.store import KnowledgeStore
+from models.domain import TargetContext, TargetRule
+from core.ai_gateway import AIGateway
+from core.knowledge.store import KnowledgeStore
 
 logger = logging.getLogger(__name__)
 
