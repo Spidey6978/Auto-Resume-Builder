@@ -5,7 +5,7 @@ data/static_profile.yaml
 
 build/
 *.pdf
-
+BACKLOG.md
 .cache/
 __pycache__/
 *.py[cod]
