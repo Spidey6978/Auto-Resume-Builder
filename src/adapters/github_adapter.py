@@ -4,6 +4,7 @@ import logging
 from typing import List, Dict, Optional, Any
 from adapters.base import BaseAdapter
 from core.cache import CacheManager
+from models.domain import SourceResult, EvidenceItem, SourceRef, SourceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -113,16 +114,68 @@ class GitHubAdapter(BaseAdapter):
             "description": data.get('description', "No description provided.")
         }
 
-    def fetch_projects(self, username: str, repo_list: List[str]) -> List[Dict[str, Any]]:
-        """Fetches multiple repositories by name."""
-        projects = []
-        for repo in repo_list:
-            data = self.get_repo_data(username, repo)
-            if data:
-                projects.append(data)
-        return projects
+    def ingest(self, identifier: str, **kwargs) -> SourceResult:
+        """
+        BaseAdapter ingest contract implementation.
+        identifier expects a string like 'username/repo_name'
+        """
+        parts = identifier.split("/")
+        if len(parts) != 2:
+            return SourceResult(
+                source_type="github",
+                source_id=identifier,
+                evidence=[],
+                status=SourceStatus.FAILED,
+                metadata={"error": "Invalid identifier format. Expected 'username/repo_name'"}
+            )
+        
+        username, repo_name = parts
+        repo_data = self.get_repo_data(username, repo_name)
+        
+        if not repo_data:
+            return SourceResult(
+                source_type="github",
+                source_id=identifier,
+                evidence=[],
+                status=SourceStatus.FAILED,
+                metadata={"error": f"Failed to fetch {identifier}"}
+            )
 
-    def fetch(self, username: str, repo_list: List[str], **kwargs) -> Dict[str, Any]:
-        """BaseAdapter fetch contract implementation."""
-        projects = self.fetch_projects(username, repo_list)
-        return {"projects": projects}
+        provenance = SourceRef(type="github", id=identifier)
+        evidence = []
+
+        # 1. README Evidence
+        if repo_data.get("readme_content"):
+            evidence.append(
+                EvidenceItem(
+                    id=f"{identifier}-readme",
+                    kind="readme",
+                    content=repo_data["readme_content"],
+                    provenance=provenance
+                )
+            )
+        
+        # 2. Repo Metadata Evidence
+        meta_content = {
+            "name": repo_data["name"],
+            "description": repo_data["description"],
+            "tech_stack": repo_data["tech_stack"],
+            "languages": repo_data["languages"],
+            "link": repo_data["link"]
+        }
+        evidence.append(
+            EvidenceItem(
+                id=f"{identifier}-metadata",
+                kind="repo_metadata",
+                content=meta_content,
+                provenance=provenance
+            )
+        )
+
+        return SourceResult(
+            source_type="github",
+            source_id=identifier,
+            evidence=evidence,
+            metadata=meta_content,
+            status=SourceStatus.SUCCESS
+        )

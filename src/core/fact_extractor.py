@@ -4,9 +4,9 @@ import re
 import logging
 from enum import Enum
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Any
 
-from models.domain import Fact, SourceResult, SourceStatus
+from models.domain import Fact, SourceResult, SourceStatus, SourceRef
 from core.ai_gateway import AIGateway
 from core.cache import CacheManager
 
@@ -42,7 +42,8 @@ class FactExtractor:
 
     def _fingerprint(self, source_result: SourceResult) -> str:
         prompt_hash = CacheManager.hash_key(self.PROMPT_VERSION)
-        content_hash = CacheManager.hash_key(source_result.raw_content)
+        evidence_str = json.dumps([e.to_dict() for e in source_result.evidence], sort_keys=True)
+        content_hash = CacheManager.hash_key(evidence_str)
         return f"{self.PROMPT_VERSION}||{prompt_hash}||{source_result.source_id}||{content_hash}"
 
     def _generate_fact_id(self, entity_id: str, fact_type: str, text: str) -> str:
@@ -69,7 +70,7 @@ class FactExtractor:
         Extracts facts from a source result using Gemini LLM.
         Applies a strict extraction prompt and enforces standard JSON schema.
         """
-        if source.status != SourceStatus.SUCCESS or not source.raw_content or len(source.raw_content.strip()) < 50:
+        if source.status != SourceStatus.SUCCESS or not source.evidence:
             return ExtractionResult(facts=[], status=ExtractionStatus.INSUFFICIENT_SOURCE)
 
         cache_key = self._fingerprint(source)
@@ -82,13 +83,16 @@ class FactExtractor:
             except Exception:
                 pass  # Fall through to re-extract if cache format changed
 
+        evidence_json = json.dumps([e.to_dict() for e in source.evidence], indent=2)
+
         prompt = f"""
-        Extract atomic, technically meaningful facts explicitly supported by the provided source material.
+        Extract atomic, technically meaningful facts explicitly supported by the provided Evidence Material.
         Facts describe what the system does or how it is implemented; they are not resume bullets.
         Do not use promotional language (e.g., "architected a groundbreaking", "spearheaded").
-        Do not infer technologies, metrics, performance characteristics, architecture, or outcomes not explicitly supported by the source.
+        Do not infer technologies, metrics, performance characteristics, architecture, or outcomes not explicitly supported by the evidence.
         Each fact should represent one independently useful claim.
-        Quantitative metrics must appear explicitly in the source; otherwise metric MUST be null.
+        Quantitative metrics must appear explicitly in the evidence; otherwise metric MUST be null.
+        You MUST include the exact 'provenance' object from the EvidenceItem that supports the fact.
 
         Output ONLY a JSON array of objects with the following schema:
         [
@@ -96,12 +100,13 @@ class FactExtractor:
             "text": "Fact statement (boring and objective).",
             "fact_type": "architecture | performance | math_physics | implementation | general",
             "metric": "verbatim quantitative string or null",
-            "tags": ["tech1", "tech2"]
+            "tags": ["tech1", "tech2"],
+            "provenance": {{"type": "source_type", "id": "source_id"}}
           }}
         ]
 
-        Source Material:
-        {source.raw_content[:40000]}
+        Evidence Material:
+        {evidence_json}
         """
 
         try:
@@ -118,7 +123,6 @@ class FactExtractor:
             return ExtractionResult(facts=[], status=ExtractionStatus.INVALID_RESPONSE, error=str(e))
 
         facts = []
-        source_ref = f"{source.source_type}:{source.source_id}"
         
         for item in parsed_array:
             try:
@@ -128,6 +132,9 @@ class FactExtractor:
                 fact_type = item.get("fact_type", "general")
                 metric = item.get("metric")
                 tags = item.get("tags", [])
+                
+                raw_prov = item.get("provenance", {})
+                source_ref = SourceRef(type=raw_prov.get("type", source.source_type), id=raw_prov.get("id", source.source_id))
                 
                 fact_id = self._generate_fact_id(entity_id, fact_type, text)
                 fact = Fact(

@@ -11,6 +11,39 @@ class SourceStatus(str, Enum):
 
 
 @dataclass
+class SourceRef:
+    type: str
+    id: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "SourceRef":
+        if isinstance(data, str):
+            # Backwards compatibility for old yaml which had strings like "github/username/repo"
+            parts = data.split("/", 1)
+            if len(parts) == 2:
+                return cls(type=parts[0], id=parts[1])
+            return cls(type="unknown", id=data)
+        return cls(type=data.get("type", ""), id=data.get("id", ""))
+
+
+@dataclass
+class EvidenceItem:
+    id: str
+    kind: str           # e.g., "readme", "manifest", "education_block"
+    content: Any
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    provenance: SourceRef = field(default_factory=lambda: SourceRef("", ""))
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["provenance"] = self.provenance.to_dict()
+        return d
+
+
+@dataclass
 class Fact:
     """Atomic evidence unit for projects, experience, or awards."""
     id: str
@@ -18,20 +51,24 @@ class Fact:
     fact_type: str  # e.g., "implementation", "performance", "math_physics", "leadership"
     metric: Optional[str] = None
     tags: List[str] = field(default_factory=list)
-    source_refs: List[str] = field(default_factory=list)
+    source_refs: List[SourceRef] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["source_refs"] = [ref.to_dict() for ref in self.source_refs]
+        return d
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Fact":
+        raw_refs = data.get("source_refs", [])
+        refs = [SourceRef.from_dict(r) for r in raw_refs]
         return cls(
             id=data["id"],
             text=data["text"],
             fact_type=data.get("fact_type", "general"),
             metric=data.get("metric"),
             tags=data.get("tags", []),
-            source_refs=data.get("source_refs", [])
+            source_refs=refs
         )
 
 
@@ -185,15 +222,16 @@ class PersonalInfo:
 @dataclass
 class SourceResult:
     """Raw data payload ingested by a source adapter prior to fact extraction."""
-    source_id: str
     source_type: str
-    raw_content: str
+    source_id: str
+    evidence: List[EvidenceItem] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     status: SourceStatus = SourceStatus.SUCCESS
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["status"] = self.status.value
+        d["evidence"] = [e.to_dict() for e in self.evidence]
         return d
 
 

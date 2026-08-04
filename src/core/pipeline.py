@@ -49,33 +49,15 @@ class BuildPipeline:
         self.compiler = compiler
         self.target_engine = target_engine
 
-    def sync_github_project(self, repo_url: str, mock_ai: bool = False) -> SyncResult:
+    def sync_github_project(self, target_repo: str, mock_ai: bool = False) -> SyncResult:
         """
         INGEST -> EXTRACT -> NORMALIZE -> MERGE -> SAVE
         """
         try:
-            # Parse username/repo from URL
-            parts = repo_url.rstrip("/").split("/")
-            if len(parts) < 2:
-                return SyncResult(False, "Invalid GitHub URL")
-            username, repo_name = parts[-2], parts[-1]
-
             # 1. Ingest
-            repo_data = self.github.get_repo_data(username, repo_name)
-            if not repo_data:
-                return SyncResult(False, f"Failed to fetch GitHub repo: {repo_url}")
-                
-            from adapters.base import SourceResult
-            source_result = SourceResult(
-                source_id=f"github/{username}/{repo_name}",
-                raw_content=repo_data.get("readme_content", ""),
-                metadata={
-                    "name": repo_data.get("raw_name", repo_name),
-                    "html_url": repo_data.get("link", repo_url),
-                    "languages": repo_data.get("languages", {})
-                },
-                status="success"
-            )
+            source_result = self.github.ingest(identifier=target_repo)
+            if source_result.status != "success":
+                return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {target_repo}"))
                 
             # 2. Extract Facts
             extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
@@ -86,7 +68,7 @@ class BuildPipeline:
             
             # 4. Merge into Profile
             raw_name = source_result.metadata.get("name", source_result.source_id.split("/")[-1])
-            link = source_result.metadata.get("html_url")
+            link = source_result.metadata.get("link")
             
             self.profile_manager.upsert_project(
                 source_id=source_result.source_id,
@@ -99,7 +81,7 @@ class BuildPipeline:
             # 5. Save Atomic
             self.profile_manager.save()
             
-            return SyncResult(True, f"Successfully synced {repo_url}")
+            return SyncResult(True, f"Successfully synced {target_repo}")
             
         except Exception as e:
             return SyncResult(False, f"Sync failed: {e}")

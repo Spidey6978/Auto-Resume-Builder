@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
-
+from models.domain import SourceResult
 
 class BaseAdapter(ABC):
     """
@@ -8,6 +8,6 @@ class BaseAdapter(ABC):
     """
 
     @abstractmethod
-    def fetch(self, **kwargs) -> Dict[str, Any]:
-        """Fetches data from source and returns a standardized data payload."""
+    def ingest(self, identifier: str, **kwargs) -> SourceResult:
+        """Fetches data from source and returns a standardized SourceResult containing EvidenceItems."""
         pass

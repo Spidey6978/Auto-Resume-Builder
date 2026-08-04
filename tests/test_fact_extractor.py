@@ -1,7 +1,7 @@
 import json
 import pytest
 from unittest.mock import MagicMock
-from models.domain import SourceResult, SourceStatus, Fact
+from models.domain import SourceResult, SourceStatus, Fact, EvidenceItem
 from core.ai_gateway import AIGateway
 from core.fact_extractor import FactExtractor, ExtractionStatus
 
@@ -41,7 +41,7 @@ def test_insufficient_source_handled_cleanly(extractor):
     source = SourceResult(
         source_id="empty-repo",
         source_type="github",
-        raw_content="Too short",
+        evidence=[],  # insufficient source
         status=SourceStatus.SUCCESS
     )
     result = extractor.extract(source, "empty-repo")
@@ -54,7 +54,7 @@ def test_invalid_json_response_handled_cleanly(extractor, mock_gateway):
     source = SourceResult(
         source_id="transitos",
         source_type="github",
-        raw_content="This is a long enough readme string so that it passes the length check. " * 10,
+        evidence=[EvidenceItem(id="e1", kind="readme", content="long enough readme string")],
         status=SourceStatus.SUCCESS
     )
     # Mock AI returning non-JSON garbage
@@ -69,7 +69,7 @@ def test_successful_fact_extraction(extractor, mock_gateway):
     source = SourceResult(
         source_id="transitos",
         source_type="github",
-        raw_content="This is a long enough readme string so that it passes the length check. " * 10,
+        evidence=[EvidenceItem(id="e1", kind="readme", content="long enough readme string")],
         status=SourceStatus.SUCCESS
     )
     
@@ -81,11 +81,13 @@ def test_successful_fact_extraction(extractor, mock_gateway):
         "text": "Batched synchronization processes 50+ queued transactions per second.",
         "fact_type": "performance",
         "metric": "50+ tx/sec",
-        "tags": ["polygon"]
+        "tags": ["polygon"],
+        "provenance": {"type": "github", "id": "transitos"}
       },
       {
         "text": "Another basic fact.",
-        "fact_type": "general"
+        "fact_type": "general",
+        "provenance": {"type": "github", "id": "transitos"}
       }
     ]
     ```
@@ -100,9 +102,11 @@ def test_successful_fact_extraction(extractor, mock_gateway):
     assert f1.fact_type == "performance"
     assert f1.metric == "50+ tx/sec"
     assert "polygon" in f1.tags
-    assert f1.source_refs == ["github:transitos"]
+    assert f1.source_refs[0].type == "github"
+    assert f1.source_refs[0].id == "transitos"
     
     f2 = result.facts[1]
     assert f2.metric is None
-    assert f2.source_refs == ["github:transitos"]
+    assert f2.source_refs[0].type == "github"
+    assert f2.source_refs[0].id == "transitos"
 

@@ -11,6 +11,8 @@ from models.domain import (
     SourceStatus,
     SourceResult,
     CanonicalProfile,
+    SourceRef,
+    EvidenceItem
 )
 
 
@@ -21,13 +23,13 @@ def test_fact_instantiation_and_dict_conversion():
         fact_type="implementation",
         metric="60 FPS",
         tags=["physics", "numerical-methods"],
-        source_refs=["github:null-geodesic-raytracer:README"]
+        source_refs=[SourceRef(type="github", id="null-geodesic-raytracer")]
     )
     d = fact.to_dict()
     assert d["id"] == "raytracer-kerr"
     assert d["metric"] == "60 FPS"
     assert d["tags"] == ["physics", "numerical-methods"]
-    assert d["source_refs"] == ["github:null-geodesic-raytracer:README"]
+    assert d["source_refs"] == [{"type": "github", "id": "null-geodesic-raytracer"}]
 
     restored = Fact.from_dict(d)
     assert restored == fact
@@ -85,15 +87,16 @@ def test_experience_and_award_items():
 
 def test_source_result_ingestion_boundary():
     result = SourceResult(
-        source_id="github:Spidey6978/TransitOS",
         source_type="github",
-        raw_content="README raw content string",
+        source_id="Spidey6978/TransitOS",
+        evidence=[EvidenceItem(id="e1", kind="readme", content="README raw content string")],
         metadata={"stars": 42},
         status=SourceStatus.SUCCESS
     )
     d = result.to_dict()
     assert d["status"] == "success"
     assert d["metadata"]["stars"] == 42
+    assert d["evidence"][0]["kind"] == "readme"
 
 
 def test_canonical_profile_yaml_roundtrip():
