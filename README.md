@@ -80,13 +80,9 @@ This keeps generated wording and targeting decisions from contaminating the cand
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Spidey6978/Auto-Resume-Builder.git
-   cd Auto-Resume-Builder
-   ```
+Auto Resume Builder is distributed as a standalone Python wheel (`.whl`). You don't need to clone the repository or understand the source code to use it.
 
-2. **Set up a virtual environment**
+1. **Set up a virtual environment (Recommended)**
    ```bash
    python -m venv venv
    ```
@@ -100,25 +96,29 @@ This keeps generated wording and targeting decisions from contaminating the cand
    source venv/bin/activate
    ```
 
-3. **Install dependencies**
+2. **Download and Install the latest Release**
+   Head over to the [GitHub Releases](https://github.com/Spidey6978/Auto-Resume-Builder/releases) page and download the latest `.whl` file (e.g., `auto_resume_builder-0.1.0a1-py3-none-any.whl`).
+
+   Then install it via pip:
    ```bash
-   pip install -r requirements.txt
+   pip install path/to/auto_resume_builder-0.1.0a1-py3-none-any.whl
    ```
+   *(This automatically installs all dependencies like Jinja2 and PyYAML).*
 
-4. **Environment Configuration**
-   The application now handles its own initialization and setup. Simply run the init command (you can alias `python -m src.arb.cli.main` to `arb`):
+3. **Initialize ARB**
+   The application now handles its own initialization and setup. Since it is installed globally in your virtual environment, simply run:
 
    ```bash
-   python -m src.arb.cli.main init
+   arb init
    ```
    
-   This will guide you through setting up your user data directory, migrating old profiles, and configuring your API keys.
+   This will guide you through setting up your user data directory, creating a blank profile, and configuring your API keys.
 
 ---
 
 ## 💻 Usage
 
-Auto Resume Builder is driven by a powerful CLI. (We recommend aliasing `python -m src.arb.cli.main` to `arb` for convenience).
+Auto Resume Builder is driven by a powerful CLI command: `arb`.
 
 ### 1. Check your setup
 
