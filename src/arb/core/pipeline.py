@@ -14,6 +14,9 @@ from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExp
 from arb.core.target_engine import TargetEngine
 from arb.models.domain import TargetContext
 from arb.core.domain_loader import DomainLoader
+from arb.core.document_segmenter import DocumentSegmenter
+from arb.core.evidence_extractor import EvidenceExtractor
+from arb.core.profile_merger import ProfileMerger
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,9 @@ class BuildPipeline:
         generator: ContentGenerator,
         compiler: ResumeCompiler,
         target_engine: TargetEngine,
-        domain_loader: DomainLoader = None
+        domain_loader: DomainLoader = None,
+        document_segmenter: DocumentSegmenter = None,
+        evidence_extractor: EvidenceExtractor = None
     ):
         self.profile_manager = profile_manager
         self.adapter_registry = adapter_registry
@@ -51,42 +56,57 @@ class BuildPipeline:
         self.compiler = compiler
         self.target_engine = target_engine
         self.domain_loader = domain_loader
+        self.document_segmenter = document_segmenter
+        self.evidence_extractor = evidence_extractor
 
-    def sync_project(self, source_type: str, identifier: str, mock_ai: bool = False) -> SyncResult:
+    def sync_source(self, source_type: str, identifier: str, mock_ai: bool = False) -> SyncResult:
         """
-        INGEST -> EXTRACT -> NORMALIZE -> MERGE -> SAVE
+        INGEST -> SEGMENT (if doc) -> EXTRACT -> NORMALIZE -> MERGE -> SAVE
         """
         try:
-            # 1. Resolve Adapter
             adapter = self.adapter_registry.get_adapter(source_type)
             if not adapter:
                 return SyncResult(False, f"No adapter registered for source type '{source_type}'")
 
-            # 2. Ingest
             source_result = adapter.ingest(identifier=identifier)
             if source_result.status != "success":
                 return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {identifier}"))
                 
-            # 2. Extract Facts
-            extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
-            
-            # 3. Normalize Languages
-            languages_dict = source_result.metadata.get("languages", {})
-            normalized_stack = normalize_languages(languages_dict)
-            
-            # 4. Merge into Profile
-            raw_name = source_result.metadata.get("name", source_result.source_id.split("/")[-1])
-            link = source_result.metadata.get("link")
-            
-            self.profile_manager.upsert_project(
-                source_id=source_result.source_id,
-                raw_name=raw_name,
-                link=link,
-                normalized_languages=normalized_stack,
-                extraction_result=extraction_result
-            )
-            
-            # 5. Save Atomic
+            merger = ProfileMerger(self.profile_manager.profile)
+                
+            if source_type == "document":
+                if not self.document_segmenter or not self.evidence_extractor:
+                    return SyncResult(False, "Document ingestion dependencies not configured.")
+                    
+                segmented_evidence = self.document_segmenter.segment(source_result.evidence)
+                for ev in segmented_evidence:
+                    extraction = self.evidence_extractor.extract(ev, mock_ai=mock_ai)
+                    merger.merge(extraction)
+                    
+            elif source_type == "github":
+                # Legacy explicit extraction
+                extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
+                languages_dict = source_result.metadata.get("languages", {})
+                normalized_stack = normalize_languages(languages_dict)
+                raw_name = source_result.metadata.get("name", source_result.source_id.split("/")[-1])
+                link = source_result.metadata.get("link")
+                
+                # We can't use ProfileManager.upsert_project anymore, so we construct EntityExtractionResult
+                from arb.core.evidence_extractor import EntityExtractionResult
+                from arb.models.domain import Project
+                
+                p = Project(
+                    id=source_result.source_id,
+                    name=raw_name,
+                    link=link,
+                    tech_stack=normalized_stack,
+                    category=[],
+                    facts=extraction_result.facts if extraction_result.status in ("success", "no_facts") else []
+                )
+                extraction = EntityExtractionResult(projects=[p])
+                merger.merge(extraction)
+
+            # Save Atomic
             self.profile_manager.save()
             
             return SyncResult(True, f"Successfully synced {identifier}")

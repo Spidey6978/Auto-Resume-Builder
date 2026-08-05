@@ -41,6 +41,9 @@ def init_services(args):
     from arb.core.knowledge.evaluator import PolicyEvaluator
     from arb.core.fact_ranker import FactRanker
     from arb.core.knowledge.store import KnowledgeStore
+    from arb.adapters.document_adapter import DocumentAdapter
+    from arb.core.document_segmenter import DocumentSegmenter
+    from arb.core.evidence_extractor import EvidenceExtractor
 
     cache_mgr = CacheManager()
     
@@ -56,9 +59,11 @@ def init_services(args):
     
     github_token = os.getenv("GITHUB_TOKEN")
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
+    doc_adapter = DocumentAdapter()
     
     adapter_registry = AdapterRegistry()
     adapter_registry.register("github", github_adapter)
+    adapter_registry.register("document", doc_adapter)
 
     extractor = FactExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     generator = ContentGenerator(ai_gateway=ai_gateway, cache_manager=cache_mgr)
@@ -96,6 +101,9 @@ def init_services(args):
         domain_loader=domain_loader
     )
 
+    doc_segmenter = DocumentSegmenter(ai_gateway=ai_gateway, cache_manager=cache_mgr)
+    evidence_extractor = EvidenceExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr, fact_extractor=extractor)
+
     pipeline = BuildPipeline(
         profile_manager=profile_manager,
         adapter_registry=adapter_registry,
@@ -103,7 +111,9 @@ def init_services(args):
         generator=generator,
         compiler=compiler,
         target_engine=target_engine,
-        domain_loader=domain_loader
+        domain_loader=domain_loader,
+        document_segmenter=doc_segmenter,
+        evidence_extractor=evidence_extractor
     )
     
     return pipeline, target_loader, cache_mgr
@@ -253,10 +263,10 @@ def handle_build(args):
 
 def handle_source(args):
     if args.source_cmd == "add":
-        if args.type == "github":
+        if args.type in ["github", "document"]:
             pipeline, _, _ = init_services(args)
-            print(f"🔄 Syncing github source: {args.identifier}")
-            result = pipeline.sync_project(source_type="github", identifier=args.identifier, mock_ai=args.mock_ai)
+            print(f"🔄 Syncing {args.type} source: {args.identifier}")
+            result = pipeline.sync_source(source_type=args.type, identifier=args.identifier, mock_ai=args.mock_ai)
             if result.success:
                 print(f"  [OK] {result.message}")
             else:
@@ -333,8 +343,8 @@ def main():
     source_sub = source_parser.add_subparsers(dest="source_cmd", required=True)
     
     add_src = source_sub.add_parser("add", help="Add a new source")
-    add_src.add_argument("type", choices=["github"], help="Type of source")
-    add_src.add_argument("identifier", help="Identifier (e.g. Spidey6978/TransitOS)")
+    add_src.add_argument("type", choices=["github", "document"], help="Type of source")
+    add_src.add_argument("identifier", help="Identifier (e.g. Spidey6978/TransitOS or path/to/resume.pdf)")
     add_src.add_argument("--mock-ai", action="store_true")
 
     # arb profile
