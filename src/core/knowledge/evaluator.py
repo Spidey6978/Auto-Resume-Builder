@@ -77,9 +77,9 @@ class PolicyEvaluator:
                 pass
                 
         # 3. domain
-        if target.domain:
+        if target.domain_id:
             try:
-                comp = self.store.get_component("domain", target.domain)
+                comp = self.store.get_component("domain", target.domain_id)
                 if comp: components.append(comp)
             except ValueError:
                 pass

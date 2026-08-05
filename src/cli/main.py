@@ -124,7 +124,7 @@ def main():
     # Initialize TargetResolver
     from core.target_resolver import JobDescriptionExtractor, TargetResolver
     extractor_service = JobDescriptionExtractor(ai_gateway=ai_gateway)
-    target_resolver = TargetResolver(extractor=extractor_service, knowledge_store=knowledge_store)
+    target_resolver = TargetResolver(extractor=extractor_service, knowledge_store=knowledge_store, domain_loader=domain_loader)
 
     # Initialize TargetLoader
     from core.target_loader import TargetLoader
@@ -137,7 +137,7 @@ def main():
     
     targets_dir = os.path.join(base_dir, "data", "targets")
     target_loader = TargetLoader(targets_dir=targets_dir, target_resolver=target_resolver)
-    target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr, policy_evaluator=policy_evaluator, fact_ranker=fact_ranker)
+    target_engine = TargetEngine(ai_gateway=ai_gateway, cache_manager=cache_mgr, policy_evaluator=policy_evaluator, fact_ranker=fact_ranker, domain_loader=domain_loader)
 
     # 3. Inject into Pipeline Orchestrator
     pipeline = BuildPipeline(
@@ -146,7 +146,8 @@ def main():
         extractor=extractor,
         generator=generator,
         compiler=compiler,
-        target_engine=target_engine
+        target_engine=target_engine,
+        domain_loader=domain_loader
     )
 
     # 4. Execute requested commands

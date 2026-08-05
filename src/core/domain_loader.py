@@ -24,7 +24,7 @@ class DomainLoader:
                     self.domains[config.id] = config
                     logger.debug(f"Loaded domain config: {config.id}")
                 except Exception as e:
-                    logger.error(f"Failed to load domain config {filename}: {e}")
+                    raise RuntimeError(f"Invalid domain configuration '{filename}': {e}") from e
 
     def get_domain(self, domain_id: str) -> Optional[DomainConfig]:
         return self.domains.get(domain_id)

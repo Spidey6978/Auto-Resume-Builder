@@ -246,7 +246,7 @@ class TargetContext:
     description: str # The raw Job Description text or a general goal
     
     # Semantic fields extracted from JD (populated by TargetResolver)
-    domain: Optional[str] = None
+    domain_id: Optional[str] = None
     specialization: Optional[str] = None
     career_stage: Optional[str] = None
     document_type: str = "industry_resume"

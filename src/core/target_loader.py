@@ -40,10 +40,11 @@ class TargetLoader:
             return self.resolver.resolve(
                 target_id=target_name,
                 raw_description=data.get("description", "A general software engineering role."),
+                domain_id=data.get("domain", None),
                 project_rules=self._parse_rule(rules_data.get("projects", {})),
                 experience_rules=self._parse_rule(rules_data.get("experience", {})),
                 mock_ai=mock_ai
             )
             
         # Default fallback
-        return self.resolver.resolve(target_id="general", raw_description="A general software engineering role.", mock_ai=mock_ai)
+        return self.resolver.resolve(target_id="general", raw_description="A general software engineering role.", domain_id="engineering", mock_ai=mock_ai)

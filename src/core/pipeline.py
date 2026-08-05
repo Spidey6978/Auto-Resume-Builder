@@ -13,6 +13,7 @@ from core.normalizer import normalize_languages
 from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
 from core.target_engine import TargetEngine
 from models.domain import TargetContext
+from core.domain_loader import DomainLoader
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,8 @@ class BuildPipeline:
         extractor: FactExtractor,
         generator: ContentGenerator,
         compiler: ResumeCompiler,
-        target_engine: TargetEngine
+        target_engine: TargetEngine,
+        domain_loader: DomainLoader = None
     ):
         self.profile_manager = profile_manager
         self.adapter_registry = adapter_registry
@@ -48,6 +50,7 @@ class BuildPipeline:
         self.generator = generator
         self.compiler = compiler
         self.target_engine = target_engine
+        self.domain_loader = domain_loader
 
     def sync_project(self, source_type: str, identifier: str, mock_ai: bool = False) -> SyncResult:
         """
@@ -99,6 +102,14 @@ class BuildPipeline:
         
         # Apply targeting rules and AI fact scoring to create a plan
         plan = self.target_engine.create_plan(raw_profile, target, mock_ai=mock_ai)
+        
+        domain_config = None
+        if self.domain_loader and target.domain_id:
+            domain_config = self.domain_loader.get_domain(target.domain_id)
+            
+        allowed_entities = ["personal", "education", "experience", "awards", "projects", "skills"]
+        if domain_config:
+            allowed_entities = domain_config.profile_entities.primary + domain_config.profile_entities.optional
 
         
         rendered_projects = []
@@ -124,28 +135,30 @@ class BuildPipeline:
         # For experience and awards, if we later add fact extraction to them, we would generate bullets here.
         # Currently, the canonical profile doesn't have a direct field for old raw bullets. 
         # If human added bullets manually in legacy yaml, we can pass them through for now, or just leave them empty.
-        rendered_experience = []
-        for exp in raw_profile.experience:
-            rendered_experience.append(RenderedExperience(
-                id=exp.id,
-                organization=exp.organization,
-                title=exp.title,
-                location=exp.location,
-                start_date=exp.start_date,
-                end_date=exp.end_date,
-                bullets=[]  # To be implemented when we generate experience bullets
-            ))
-            
         rendered_awards = []
-        for awd in raw_profile.awards:
-            rendered_awards.append(RenderedAward(
-                id=awd.id,
-                title=awd.title,
-                event=awd.event,
-                organization=awd.organization,
-                year=awd.year,
-                bullets=[]
-            ))
+        if "awards" in allowed_entities:
+            for awd in raw_profile.awards:
+                rendered_awards.append(RenderedAward(
+                    id=awd.id,
+                    title=awd.title,
+                    event=awd.event,
+                    organization=awd.organization,
+                    year=awd.year,
+                    bullets=[]
+                ))
+                
+        rendered_experience = []
+        if "experience" in allowed_entities:
+            for exp in raw_profile.experience:
+                rendered_experience.append(RenderedExperience(
+                    id=exp.id,
+                    organization=exp.organization,
+                    title=exp.title,
+                    location=exp.location,
+                    start_date=exp.start_date,
+                    end_date=exp.end_date,
+                    bullets=[]  # To be implemented when we generate experience bullets
+                ))
             
         # Retrieve section_order from policies, or use a default
         resolved_order_policy = plan.policies.policies.get("page_policy") if plan.policies else None
@@ -154,12 +167,12 @@ class BuildPipeline:
         page_policy = resolved_order_policy or {"pages": 1}
 
         return ResumeDocument(
-            personal=raw_profile.personal,
-            education=raw_profile.education,
+            personal=raw_profile.personal if "personal" in allowed_entities else None,
+            education=raw_profile.education if "education" in allowed_entities else [],
             experience=rendered_experience,
             awards=rendered_awards,
-            projects=rendered_projects,
-            skills=raw_profile.skills,
+            projects=rendered_projects, # Already filtered by target_engine
+            skills=raw_profile.skills if "skills" in allowed_entities else {},
             section_order=section_order,
             page_policy=page_policy
         )

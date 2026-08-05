@@ -1,4 +1,5 @@
 name: "Backend Engineer"
+domain: "engineering"
 description: "Senior backend engineering role focusing on distributed systems, databases, and API design."
 rules:
   projects:

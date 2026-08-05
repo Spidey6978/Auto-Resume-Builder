@@ -5,7 +5,7 @@ from models.domain import TargetContext, TargetRule
 def test_job_description_extractor_success():
     mock_ai = MagicMock()
     # Mock LLM returning valid JSON
-    mock_ai.generate_text.return_value = 'Here is the parsed output: {"domain": "software_engineering", "specialization": "backend", "career_stage": "entry_level", "hard_skills": ["python", "docker"], "implied_traits": ["fast-paced"]}'
+    mock_ai.generate_text.return_value = 'Here is the parsed output: {"domain_id": "software_engineering", "specialization": "backend", "career_stage": "entry_level", "hard_skills": ["python", "docker"], "implied_traits": ["fast-paced"]}'
     
     extractor = JobDescriptionExtractor(ai_gateway=mock_ai)
     
@@ -16,7 +16,7 @@ def test_job_description_extractor_success():
         valid_career_stages=["entry_level", "senior"]
     )
     
-    assert result.get("domain") == "software_engineering"
+    assert result.get("domain_id") == "software_engineering"
     assert result.get("specialization") == "backend"
     assert result.get("career_stage") == "entry_level"
     assert "python" in result.get("hard_skills", [])
@@ -43,7 +43,7 @@ def test_target_resolver():
     # Setup mock extractor
     mock_extractor = MagicMock()
     mock_extractor.extract.return_value = {
-        "domain": "management_consulting",
+        "domain_id": "management_consulting",
         "specialization": None,
         "career_stage": "senior",
         "hard_skills": ["excel"],
@@ -58,7 +58,10 @@ def test_target_resolver():
         "career_stage": {"senior": MagicMock(), "entry_level": MagicMock()}
     }.get(category, {})
     
-    resolver = TargetResolver(extractor=mock_extractor, knowledge_store=mock_store)
+    mock_domain_loader = MagicMock()
+    mock_domain_loader.domains = {"management_consulting": MagicMock(), "software_engineering": MagicMock()}
+
+    resolver = TargetResolver(extractor=mock_extractor, knowledge_store=mock_store, domain_loader=mock_domain_loader)
     
     target_rule = TargetRule(exclude=["p1"])
     context = resolver.resolve(
@@ -69,7 +72,7 @@ def test_target_resolver():
     
     assert context.id == "consulting_role"
     assert context.description == "Senior consultant needed."
-    assert context.domain == "management_consulting"
+    assert context.domain_id == "management_consulting"
     assert context.specialization is None
     assert context.career_stage == "senior"
     assert context.hard_skills == ["excel"]

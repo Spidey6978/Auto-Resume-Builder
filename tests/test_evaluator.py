@@ -73,7 +73,7 @@ def test_policy_evaluator_hierarchy():
     evaluator = PolicyEvaluator(store=mock_store)
     
     profile = CanonicalProfile()
-    target = TargetContext(id="t1", description="desc", document_type="industry_resume", domain="software_engineering")
+    target = TargetContext(id="t1", description="desc", document_type="industry_resume", domain_id="software_engineering")
     
     resolved = evaluator.evaluate(profile, target)
     

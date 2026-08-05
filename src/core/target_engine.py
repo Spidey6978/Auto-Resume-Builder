@@ -8,6 +8,7 @@ from core.ai_gateway import AIGateway
 from core.cache import CacheManager
 from core.knowledge.evaluator import PolicyEvaluator
 from core.fact_ranker import FactRanker
+from core.domain_loader import DomainLoader
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,23 @@ class TargetEngine:
     CACHE_NAMESPACE = "llm_fact_scoring"
     PROMPT_VERSION = "scoring-v1.0"
 
-    def __init__(self, ai_gateway: AIGateway, cache_manager: CacheManager, policy_evaluator: PolicyEvaluator = None, fact_ranker: FactRanker = None):
+    def __init__(self, ai_gateway: AIGateway, cache_manager: CacheManager, policy_evaluator: PolicyEvaluator = None, fact_ranker: FactRanker = None, domain_loader: DomainLoader = None):
         self.ai = ai_gateway
         self.cache = cache_manager
         self.evaluator = policy_evaluator
         self.ranker = fact_ranker
+        self.domain_loader = domain_loader
 
     def _filter_projects(self, projects: List[Project], target: TargetContext) -> List[Project]:
+        # Check domain config for entity visibility
+        if self.domain_loader and target.domain_id:
+            domain_config = self.domain_loader.get_domain(target.domain_id)
+            if domain_config:
+                allowed_entities = domain_config.profile_entities.primary + domain_config.profile_entities.optional
+                if "projects" not in allowed_entities:
+                    logger.info(f"TargetEngine: Masking all projects. 'projects' not in allowed entities for domain '{target.domain_id}'.")
+                    return []
+
         rules = target.project_rules
         filtered = []
         for p in projects:

@@ -9,7 +9,7 @@ class TypedSourceRef:
     guidance: str
 
 @dataclass
-class EntityVisibility:
+class EntityPriorities:
     primary: List[str]
     optional: List[str]
 
@@ -18,7 +18,7 @@ class DomainConfig:
     id: str
     display_name: str
     suggested_sources: List[TypedSourceRef]
-    profile_entities: EntityVisibility
+    profile_entities: EntityPriorities
     default_document_type: str
 
     @classmethod
@@ -27,7 +27,7 @@ class DomainConfig:
             data = yaml.safe_load(f)
             
         sources = [TypedSourceRef(**s) for s in data.get("suggested_sources", [])]
-        entities = EntityVisibility(**data.get("profile_entities", {"primary": [], "optional": []}))
+        entities = EntityPriorities(**data.get("profile_entities", {"primary": [], "optional": []}))
         
         return cls(
             id=data["id"],

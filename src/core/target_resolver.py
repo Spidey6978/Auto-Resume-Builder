@@ -5,6 +5,8 @@ from models.domain import TargetContext, TargetRule
 from core.ai_gateway import AIGateway
 from core.knowledge.store import KnowledgeStore
 
+from core.domain_loader import DomainLoader
+
 logger = logging.getLogger(__name__)
 
 class JobDescriptionExtractor:
@@ -38,7 +40,7 @@ class JobDescriptionExtractor:
         
         Output format:
         {{
-            "domain": "string or null",
+            "domain_id": "string or null",
             "specialization": "string or null",
             "career_stage": "string or null",
             "hard_skills": ["skill1", "skill2"],
@@ -48,7 +50,7 @@ class JobDescriptionExtractor:
         
         if mock_ai:
             return {
-                "domain": valid_domains[0] if valid_domains else None,
+                "domain_id": valid_domains[0] if valid_domains else None,
                 "specialization": valid_specializations[0] if valid_specializations else None,
                 "career_stage": valid_career_stages[0] if valid_career_stages else None,
                 "hard_skills": ["python", "aws"],
@@ -73,16 +75,17 @@ class TargetResolver:
     """
     Constructs a complete TargetContext from user input and LLM extraction.
     """
-    def __init__(self, extractor: JobDescriptionExtractor, knowledge_store: KnowledgeStore):
+    def __init__(self, extractor: JobDescriptionExtractor, knowledge_store: KnowledgeStore, domain_loader: DomainLoader):
         self.extractor = extractor
         self.knowledge_store = knowledge_store
+        self.domain_loader = domain_loader
         
-    def resolve(self, target_id: str, raw_description: str, project_rules: TargetRule = None, experience_rules: TargetRule = None, mock_ai: bool = False) -> TargetContext:
+    def resolve(self, target_id: str, raw_description: str, domain_id: Optional[str] = None, project_rules: TargetRule = None, experience_rules: TargetRule = None, mock_ai: bool = False) -> TargetContext:
         """
         Resolves a raw job description into a semantic TargetContext.
         """
         # 1. Fetch valid knowledge categories
-        valid_domains = list(self.knowledge_store.get_all_components("domain").keys())
+        valid_domains = list(self.domain_loader.domains.keys())
         valid_specializations = list(self.knowledge_store.get_all_components("specialization").keys())
         valid_career_stages = list(self.knowledge_store.get_all_components("career_stage").keys())
         
@@ -95,11 +98,14 @@ class TargetResolver:
             mock_ai=mock_ai
         )
         
+        # If domain_id was provided (e.g. from static YAML), use it. Otherwise fallback to extraction.
+        final_domain_id = domain_id or extracted.get("domain_id")
+        
         # 3. Construct TargetContext
         return TargetContext(
             id=target_id,
             description=raw_description,
-            domain=extracted.get("domain"),
+            domain_id=final_domain_id,
             specialization=extracted.get("specialization"),
             career_stage=extracted.get("career_stage"),
             hard_skills=extracted.get("hard_skills", []),
