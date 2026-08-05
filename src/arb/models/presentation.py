@@ -36,7 +36,7 @@ class RenderedAward:
     event: Optional[str]
     organization: Optional[str]
     year: Optional[int]
-    bullets: List[str]
+    bullets: List[RenderedBullet]
 
 
 @dataclass

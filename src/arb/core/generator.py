@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext
-from arb.models.plan import ResumePlan, PlannedProject
+from arb.models.plan import ResumePlan, PlannedProject, PlannedExperience
 from arb.core.ai_gateway import AIGateway
 from arb.core.cache import CacheManager
 

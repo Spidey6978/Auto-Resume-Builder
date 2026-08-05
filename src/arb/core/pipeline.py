@@ -21,7 +21,7 @@ from arb.core.document_segmenter import DocumentSegmenter
 from arb.core.evidence_extractor import EvidenceExtractor
 from arb.core.profile_merger import ProfileMerger
 from arb.core.source_manager import SourceManager
-from arb.models.domain import SourceRecord
+from arb.models.domain import SourceRecord, SourceRef, EvidenceItem
 
 logger = logging.getLogger(__name__)
 
@@ -93,21 +93,16 @@ class BuildPipeline:
                     self.source_manager.save()
                 return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {identifier}"))
                 
+            # Compute evidence hash once so it is available for both skip checks and persistence.
+            evidence_json = json.dumps([e.to_dict() for e in source_result.evidence], sort_keys=True)
+            new_hash = hashlib.sha256(evidence_json.encode('utf-8')).hexdigest()
+
             # Check skip logic via SourceManager
             if self.source_manager:
                 existing = self.source_manager.get_source(source_result.source_id)
                 should_skip = False
                 
                 if existing and existing.status == "success":
-                    if source_type in ("document", "linkedin"):
-                        # these used ID matching which implicitly meant new files got new IDs, 
-                        # but we can rely on hashing now for all.
-                        pass
-                    
-                    # Compute evidence hash
-                    evidence_json = json.dumps([e.to_dict() for e in source_result.evidence], sort_keys=True)
-                    new_hash = hashlib.sha256(evidence_json.encode('utf-8')).hexdigest()
-                    
                     old_hash = existing.last_ingested_hash
                     if old_hash and new_hash == old_hash:
                         should_skip = True
@@ -130,31 +125,31 @@ class BuildPipeline:
                     merger.merge(extraction)
                     
             elif source_type == "github":
-                # Legacy explicit extraction
-                extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
+                if not self.evidence_extractor:
+                    return SyncResult(False, "GitHub ingestion dependencies not configured.")
+
                 languages_dict = source_result.metadata.get("languages", {})
                 normalized_stack = normalize_languages(languages_dict)
                 frameworks = source_result.metadata.get("frameworks", [])
-                
-                # Ordered union
                 combined_stack = list(dict.fromkeys(normalized_stack + frameworks))
-                
+
                 raw_name = source_result.metadata.get("name", source_result.source_id.split("/")[-1])
                 link = source_result.metadata.get("link")
-                
-                # We can't use ProfileManager.upsert_project anymore, so we construct EntityExtractionResult
-                from arb.core.evidence_extractor import EntityExtractionResult
-                from arb.models.domain import Project
-                
-                p = Project(
-                    id=source_result.source_id,
-                    name=raw_name,
-                    link=link,
-                    tech_stack=combined_stack,
-                    category=[],
-                    facts=extraction_result.facts if extraction_result.status in ("success", "no_facts") else []
+
+                repo_evidence = EvidenceItem(
+                    id=f"{source_result.source_id}-metadata",
+                    kind="projects",
+                    content={
+                        "id": source_result.source_id,
+                        "name": raw_name,
+                        "link": link,
+                        "tech_stack": combined_stack,
+                        "facts": [],
+                    },
+                    provenance=SourceRef(type="github", id=source_result.source_id)
                 )
-                extraction = EntityExtractionResult(projects=[p])
+
+                extraction = self.evidence_extractor.extract(repo_evidence, mock_ai=mock_ai)
                 merger.merge(extraction)
 
             elif source_type in ("manual", "linkedin"):
@@ -236,7 +231,7 @@ class BuildPipeline:
                         re_obj = RenderedExperience(
                             id=exp.experience_id,
                             organization=canonical_exp.organization,
-                            role=canonical_exp.role,
+                            title=canonical_exp.title,
                             location=canonical_exp.location,
                             start_date=canonical_exp.start_date,
                             end_date=canonical_exp.end_date,
@@ -252,7 +247,7 @@ class BuildPipeline:
                         re_obj = RenderedExperience(
                             id=exp.experience_id,
                             organization=canonical_exp.organization,
-                            role=canonical_exp.role,
+                            title=canonical_exp.title,
                             location=canonical_exp.location,
                             start_date=canonical_exp.start_date,
                             end_date=canonical_exp.end_date,
@@ -330,7 +325,8 @@ class BuildPipeline:
             document = self.create_document(target=target, mock_ai=mock_ai)
             
             build_id = uuid.uuid4().hex
-            output_dir = os.path.join(os.path.dirname(self.compiler.templates_dir), "build", build_id)
+            output_root = os.path.join(os.getcwd(), "build")
+            output_dir = os.path.join(output_root, build_id)
             
             max_iterations = 5
             allowed_pages = document.page_policy.get("pages", 1) if document.page_policy else 1

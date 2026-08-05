@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 from arb.core.fact_ranker import FactRanker, ScoredFact
-from arb.models.domain import Fact, TargetContext, Project
+from arb.models.domain import Fact, TargetContext, Project, SourceRef
 from arb.models.plan import ResolvedPolicies
 
 def test_deterministic_scoring():
@@ -35,7 +35,7 @@ def test_deterministic_scoring():
         id="f2",
         text="Led a team of 5 engineers to deliver the project on time.",
         fact_type="leadership",
-        source_refs=["src1", "src2"]
+        source_refs=[SourceRef(type="x", id="src1"), SourceRef(type="x", id="src2")]
     )
     
     # Fact 3: Irrelevant fact

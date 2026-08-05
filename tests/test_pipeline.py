@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 from arb.core.pipeline import BuildPipeline
-from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext
+from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext, SourceResult, EvidenceItem, SourceRef
 from arb.models.presentation import ResumeDocument
 
 def test_pipeline_build_resume():
@@ -58,3 +58,39 @@ def test_pipeline_build_resume():
     assert len(document.projects) == 1
     assert document.projects[0].bullets[0].text == "Bullet 1"
     assert document.projects[0].bullets[1].text == "Bullet 2"
+
+
+def test_sync_source_computes_hash_before_skip_check():
+    profile_manager = MagicMock()
+    profile_manager.profile = CanonicalProfile()
+    profile_manager.save = MagicMock()
+
+    adapter = MagicMock()
+    adapter.ingest.return_value = SourceResult(
+        source_type="manual",
+        source_id="manual:test",
+        evidence=[EvidenceItem(id="e1", kind="skills", content={"Languages": ["Python"]}, metadata={}, provenance=SourceRef(type="manual", id="test"))],
+        metadata={},
+        status="success",
+    )
+
+    source_manager = MagicMock()
+    source_manager.get_source.return_value = None
+    source_manager.upsert_source = MagicMock()
+    source_manager.save = MagicMock()
+
+    pipeline = BuildPipeline(
+        profile_manager=profile_manager,
+        adapter_registry=MagicMock(get_adapter=MagicMock(return_value=adapter)),
+        extractor=MagicMock(),
+        generator=MagicMock(),
+        compiler=MagicMock(),
+        target_engine=MagicMock(),
+        evidence_extractor=MagicMock(),
+        source_manager=source_manager,
+    )
+
+    result = pipeline.sync_source(source_type="manual", identifier="test")
+
+    assert result.success is True
+    source_manager.upsert_source.assert_called()

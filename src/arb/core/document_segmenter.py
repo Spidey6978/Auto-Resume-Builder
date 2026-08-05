@@ -1,5 +1,6 @@
 import json
 import hashlib
+import logging
 import yaml
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -8,6 +9,8 @@ from arb.models.domain import EvidenceItem
 from arb.core.ai_gateway import AIGateway
 from arb.core.cache import CacheManager
 from arb.core.paths import get_bundled_data_dir
+
+logger = logging.getLogger(__name__)
 
 class DocumentSegmenter:
     """
@@ -119,7 +122,7 @@ class DocumentSegmenter:
                 return cached
                 
         try:
-            response = self.ai_gateway.generate(prompt)
+            response = self.ai_gateway.generate_text(prompt)
             start = response.find("[")
             end = response.rfind("]")
             if start != -1 and end != -1:
@@ -135,5 +138,6 @@ class DocumentSegmenter:
                 self.cache_manager.set("document_segmentation", cache_key, blocks)
                 
             return blocks
-        except Exception:
+        except Exception as exc:
+            logger.warning("Document segmentation failed during LLM fallback: %s", exc, exc_info=True)
             return [{"type": "unknown", "content": text, "method": "llm_fallback_failed"}]

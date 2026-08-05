@@ -39,11 +39,22 @@ class PyProjectTomlParser(ManifestParser):
         for m in matches:
             deps.append(m.lower())
             
-        # Match unquoted keys before '=' under [tool.poetry.dependencies]
-        # e.g., fastapi = "^0.68.0"
-        key_matches = re.findall(r'^([a-zA-Z0-9_\-]+)\s*=', content, re.MULTILINE)
-        for m in key_matches:
-            deps.append(m.lower())
+        # Match unquoted keys before '=' only when they appear inside a dependency table.
+        # This avoids falsely parsing section headers like [tool.poetry.dependencies] and
+        # metadata keys such as name/version/description from the project table.
+        dep_table_matches = re.finditer(r'^\s*\[(?:tool\.poetry\.dependencies|dependencies|dev-dependencies)\]\s*$', content, re.MULTILINE)
+        for match in dep_table_matches:
+            table_start = match.end()
+            section_body = content[table_start:]
+            for line in section_body.splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("["):
+                    break
+                if "=" not in stripped:
+                    continue
+                key = stripped.split("=", 1)[0].strip()
+                if re.match(r'^[a-zA-Z0-9_\-]+$', key):
+                    deps.append(key.lower())
             
         return deps
 

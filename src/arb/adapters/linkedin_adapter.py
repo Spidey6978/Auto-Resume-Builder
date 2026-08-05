@@ -131,12 +131,12 @@ class LinkedInAdapter(BaseAdapter):
         items = []
         rows = self._safe_read_csv(file_path)
         for row in rows:
-            company = row.get("Company Name", "").strip()
+            company = (row.get("Company Name") or row.get("Employer") or row.get("Company") or "").strip()
             title = row.get("Title", "").strip()
             if not company and not title:
                 continue
                 
-            start = row.get("Started On", "").strip()
+            start = (row.get("Started On") or row.get("Start Date") or "").strip()
             end = row.get("Finished On", "").strip()
             desc = row.get("Description", "").strip()
             loc = row.get("Location", "").strip()
@@ -184,8 +184,8 @@ class LinkedInAdapter(BaseAdapter):
             if not school:
                 continue
                 
-            start = row.get("Started On", "").strip()
-            end = row.get("Finished On", "").strip()
+            start = (row.get("Started On") or row.get("Start Date") or "").strip()
+            end = (row.get("Finished On") or row.get("End Date") or "").strip()
             
             data = {
                 "id": f"{school}_{degree}".replace(" ", "_").lower(),
