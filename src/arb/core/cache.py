@@ -4,9 +4,12 @@ import sqlite3
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Optional, Tuple, Dict
+import logging
 
 
-from arb.core.paths import get_user_data_dir
+from arb.core.paths import get_cache_dir
+
+logger = logging.getLogger(__name__)
 
 class CacheManager:
     """
@@ -14,13 +17,11 @@ class CacheManager:
     Caches arbitrary JSON-serializable payloads and optional ETag headers
     indexed by SHA256 hashes of input keys.
     """
-
-    def __init__(self, db_path: Optional[str] = None):
+    
+    def __init__(self, db_path: str = None):
         if db_path is None:
-            cache_dir = get_user_data_dir() / "cache"
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(cache_dir / "build_cache.db")
-
+            # Setup default cache location in user's OS cache directory
+            db_path = str(get_cache_dir() / "arb_cache.sqlite")
         self.db_path = db_path
         self._init_db()
 

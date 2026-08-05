@@ -33,3 +33,4 @@ class ResumePlan:
     projects: List[PlannedProject] = field(default_factory=list)
     experience: List[PlannedExperience] = field(default_factory=list)
     policies: ResolvedPolicies = field(default_factory=ResolvedPolicies)
+    allowed_entities: List[str] = field(default_factory=lambda: ["personal", "education", "experience", "awards", "projects", "skills"])

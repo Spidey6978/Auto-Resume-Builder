@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "auto-resume-builder"
@@ -25,4 +25,4 @@ arb = "arb.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml", "*.tex", "*.toml", "*.md", "*.txt"]
+"*" = ["**/*.yaml", "**/*.tex", "**/*.toml", "**/*.md", "**/*.txt"]

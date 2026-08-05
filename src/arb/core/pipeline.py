@@ -103,14 +103,7 @@ class BuildPipeline:
         # Apply targeting rules and AI fact scoring to create a plan
         plan = self.target_engine.create_plan(raw_profile, target, mock_ai=mock_ai)
         
-        domain_config = None
-        if self.domain_loader and target.domain_id:
-            domain_config = self.domain_loader.get_domain(target.domain_id)
-            
-        allowed_entities = ["personal", "education", "experience", "awards", "projects", "skills"]
-        if domain_config:
-            allowed_entities = domain_config.profile_entities.primary + domain_config.profile_entities.optional
-
+        allowed_entities = plan.allowed_entities
         
         rendered_projects = []
         for planned_proj in plan.projects:

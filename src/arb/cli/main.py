@@ -4,6 +4,7 @@ import argparse
 import logging
 import platform
 import subprocess
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Ensure UTF-8 stdout printing on Windows terminals
@@ -119,10 +120,23 @@ def handle_init(args):
     
     if not canonical_path.exists():
         if legacy_path.exists():
-            print("Found legacy canonical_profile.yaml. Migrating to user data directory...")
-            import shutil
-            shutil.copy(legacy_path, canonical_path)
-            print("Migration complete.")
+            print(f"Found an existing repository profile at:\n{legacy_path}\n")
+            ans = input("Import it into ARB? [Y/n] ").strip().lower()
+            if ans in ["y", "yes", ""]:
+                try:
+                    from arb.core.profile_manager import CanonicalProfile
+                    import yaml
+                    with open(legacy_path, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                    CanonicalProfile(**data)
+                    import shutil
+                    shutil.copy(legacy_path, canonical_path)
+                    print("Migration complete.")
+                except Exception as e:
+                    print(f"Legacy profile could not be validated: {e}")
+                    print("Nothing was changed.")
+            else:
+                print("Skipped migration.")
         else:
             print("Creating empty canonical_profile.yaml...")
             canonical_path.write_text("personal:\n  name: ''\nexperience: []\nprojects: []\neducation: []\nskills: []\n", encoding="utf-8")
@@ -147,6 +161,13 @@ def handle_doctor(args):
     print("🩺 ARB Doctor")
     print("-" * 30)
     
+    checks = {
+        "data_dir": False,
+        "profile": False,
+        "ai": False,
+        "compiler": False
+    }
+    
     # Python
     print(f"✓ Python {platform.python_version()}")
     
@@ -154,19 +175,30 @@ def handle_doctor(args):
     data_dir = get_user_data_dir()
     if data_dir.exists() and os.access(data_dir, os.W_OK):
         print(f"✓ User data directory ({data_dir})")
+        checks["data_dir"] = True
     else:
         print(f"✗ User data directory is missing or not writable: {data_dir}")
         
     # Profile
     prof = data_dir / "canonical_profile.yaml"
     if prof.exists():
-        print("✓ Canonical profile found")
+        try:
+            from arb.core.profile_manager import CanonicalProfile
+            import yaml
+            with open(prof, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            CanonicalProfile(**data)
+            print("✓ Canonical profile valid")
+            checks["profile"] = True
+        except Exception as e:
+            print(f"✗ Canonical profile malformed: {e}")
     else:
         print("✗ Canonical profile missing (run 'arb init')")
         
     # Keys
     if os.getenv("GEMINI_API_KEY"):
         print("✓ GEMINI_API_KEY found")
+        checks["ai"] = True
     else:
         print("✗ GEMINI_API_KEY not set")
         
@@ -175,17 +207,20 @@ def handle_doctor(args):
     else:
         print("! GitHub token not set (public repos only, rate limits apply)")
         
-    # LuaLaTeX
+    # Compiler
     import shutil
     if shutil.which("lualatex"):
         print("✓ LuaLaTeX compiler found")
+        checks["compiler"] = True
     elif shutil.which("tectonic"):
         print("✓ Tectonic compiler found")
+        checks["compiler"] = True
     else:
         print("✗ No LaTeX compiler (LuaLaTeX or Tectonic) found in PATH")
         
     print("-" * 30)
-    print("Ready to build." if os.getenv("GEMINI_API_KEY") else "Not ready.")
+    ready = all(checks.values())
+    print("Ready to build." if ready else "Not ready.")
 
 
 def handle_build(args):
@@ -228,8 +263,6 @@ def handle_source(args):
                 print(f"  [!] {result.message}")
         else:
             print(f"Source type '{args.type}' not fully supported yet.")
-    elif args.source_cmd == "list":
-        print("Source listing coming soon.")
 
 
 def handle_profile(args):
@@ -303,10 +336,6 @@ def main():
     add_src.add_argument("type", choices=["github"], help="Type of source")
     add_src.add_argument("identifier", help="Identifier (e.g. Spidey6978/TransitOS)")
     add_src.add_argument("--mock-ai", action="store_true")
-    
-    source_sub.add_parser("list", help="List active sources")
-    source_sub.add_parser("sync", help="Sync sources")
-    source_sub.add_parser("remove", help="Remove a source")
 
     # arb profile
     profile_parser = subparsers.add_parser("profile", help="Manage canonical profile")

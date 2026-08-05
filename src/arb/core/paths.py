@@ -1,14 +1,21 @@
 import os
 from pathlib import Path
-from platformdirs import user_data_dir
+from platformdirs import user_data_dir, user_cache_dir
 
 def get_user_data_dir() -> Path:
     """
     Returns the user data directory for ARB.
-    This is where the user's specific configurations, canonical profile, 
-    and cache are stored.
+    This is where the user's specific configurations and canonical profile are stored.
     """
     path = Path(user_data_dir("auto-resume-builder", "arb"))
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def get_cache_dir() -> Path:
+    """
+    Returns the cache directory for ARB.
+    """
+    path = Path(user_cache_dir("auto-resume-builder", "arb"))
     path.mkdir(parents=True, exist_ok=True)
     return path
 

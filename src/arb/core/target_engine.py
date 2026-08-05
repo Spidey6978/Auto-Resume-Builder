@@ -28,15 +28,6 @@ class TargetEngine:
         self.domain_loader = domain_loader
 
     def _filter_projects(self, projects: List[Project], target: TargetContext) -> List[Project]:
-        # Check domain config for entity visibility
-        if self.domain_loader and target.domain_id:
-            domain_config = self.domain_loader.get_domain(target.domain_id)
-            if domain_config:
-                allowed_entities = domain_config.profile_entities.primary + domain_config.profile_entities.optional
-                if "projects" not in allowed_entities:
-                    logger.info(f"TargetEngine: Masking all projects. 'projects' not in allowed entities for domain '{target.domain_id}'.")
-                    return []
-
         rules = target.project_rules
         filtered = []
         for p in projects:
@@ -55,13 +46,22 @@ class TargetEngine:
         Returns a ResumePlan dictating which projects and facts should be included.
         Does not mutate the CanonicalProfile.
         """
+        allowed_entities = ["personal", "education", "experience", "awards", "projects", "skills"]
+        if self.domain_loader and target.domain_id:
+            domain_config = self.domain_loader.get_domain(target.domain_id)
+            if domain_config:
+                allowed_entities = domain_config.profile_entities.primary + domain_config.profile_entities.optional
+
         planned_projects = []
         filtered_projects = self._filter_projects(profile.projects, target)
+        if "projects" not in allowed_entities:
+            filtered_projects = []
         
         # Build a new plan with the targeted data
         plan = ResumePlan(
             target=target,
-            projects=[]
+            projects=[],
+            allowed_entities=allowed_entities
         )
         
         # Evaluate conditional policies FIRST, so FactRanker has access to the active priorities
