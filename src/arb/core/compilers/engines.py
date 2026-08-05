@@ -22,10 +22,6 @@ class LuaLaTeXEngine:
         output_dir = os.path.dirname(tex_path)
         pdf_path = tex_path.replace(".tex", ".pdf")
         
-        if os.getenv("GITHUB_ACTIONS") == "true":
-            logger.info("[CI/CD] Running in GitHub Actions. Skipping local LuaLaTeX compilation.")
-            return CompilationResult(pdf_path=pdf_path, page_count=1, success=True)
-
         logger.info("Compiling LaTeX to PDF using LuaLaTeX...")
         try:
             subprocess.run(
@@ -65,17 +61,16 @@ class LuaLaTeXEngine:
 
 class TectonicEngine:
     def compile(self, tex_path: str) -> CompilationResult:
+        output_dir = os.path.dirname(tex_path)
         pdf_path = tex_path.replace(".tex", ".pdf")
         
-        if os.getenv("GITHUB_ACTIONS") == "true":
-            logger.info("[CI/CD] Running in GitHub Actions. Skipping local compilation.")
-            return CompilationResult(pdf_path=pdf_path, page_count=1, success=True)
-
         logger.info("Compiling LaTeX to PDF using Tectonic...")
         try:
             subprocess.run(
                 [
                     "tectonic",
+                    "--outdir",
+                    output_dir,
                     tex_path,
                 ],
                 check=True,
