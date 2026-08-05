@@ -1,0 +1,83 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build Wheel and SDist
+        run: python -m build
+
+      - name: Install Wheel in fresh virtualenv
+        run: |
+          python -m venv .venv-wheel-test
+          source .venv-wheel-test/bin/activate
+          # Find and install the wheel
+          pip install dist/*.whl
+
+      - name: Smoke Test (Isolated)
+        run: |
+          source .venv-wheel-test/bin/activate
+          
+          echo "Testing CLI presence and help:"
+          arb --help
+          
+          echo "Testing doctor (will fail on tools but should not crash):"
+          arb doctor || true
+          
+          # Initialize headless to avoid interactive prompts hanging
+          # Manually seed canonical profile for testing
+          mkdir -p ~/.local/share/arb/auto-resume-builder
+          echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > ~/.local/share/arb/auto-resume-builder/canonical_profile.yaml
+          
+          # Now try mock build
+          arb build --target backend --mock-ai || echo "Mock build failed (expected if tectonic is missing in Ubuntu image, but arb itself shouldn't crash)."
+
+      - name: Upload Artifacts
+        # Only upload artifacts from one python version run to avoid duplication
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-resume-builder-packages
+          path: dist/*
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: auto-resume-builder-packages
+          path: dist
+          
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

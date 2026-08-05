@@ -1,0 +1,3 @@
+recursive-include src/arb/templates *.tex *.md *.txt
+recursive-include src/arb/data *.yaml *.json
+recursive-include src/arb/config *.yaml
