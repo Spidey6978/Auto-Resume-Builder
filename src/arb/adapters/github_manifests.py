@@ -32,12 +32,19 @@ class RequirementsTxtParser(ManifestParser):
 
 class PyProjectTomlParser(ManifestParser):
     def parse(self, content: str) -> List[str]:
-        # Very basic regex to avoid a heavy TOML dependency
-        # We just grab quoted words inside arrays or standard keys and let tech_mappings filter the noise
+        # Handle syntax like "fastapi>=0.100" or fastapi = "^0.68.0"
         deps = []
-        matches = re.findall(r'[\'"]([a-zA-Z0-9_\-]+)[\'"]', content)
+        # Match quoted strings in list arrays or dict keys
+        matches = re.findall(r'[\'"]([a-zA-Z0-9_\-]+)(?:[>=<~^\[].*)?[\'"]', content)
         for m in matches:
             deps.append(m.lower())
+            
+        # Match unquoted keys before '=' under [tool.poetry.dependencies]
+        # e.g., fastapi = "^0.68.0"
+        key_matches = re.findall(r'^([a-zA-Z0-9_\-]+)\s*=', content, re.MULTILINE)
+        for m in key_matches:
+            deps.append(m.lower())
+            
         return deps
 
 class GoModParser(ManifestParser):
@@ -75,10 +82,28 @@ class CargoTomlParser(ManifestParser):
                 deps.append(pkg_name.lower())
         return deps
 
+class PomXmlParser(ManifestParser):
+    def parse(self, content: str) -> List[str]:
+        deps = []
+        import xml.etree.ElementTree as ET
+        try:
+            # pom.xml uses namespaces, strip them for simple search
+            content = re.sub(r'\sxmlns="[^"]+"', '', content, count=1)
+            root = ET.fromstring(content)
+            for dep in root.findall(".//dependency/artifactId"):
+                if dep.text:
+                    deps.append(dep.text.lower())
+        except Exception:
+            # Fallback regex
+            matches = re.findall(r'<artifactId>([^<]+)</artifactId>', content)
+            deps.extend([m.lower() for m in matches])
+        return deps
+
 MANIFEST_PARSERS: Dict[str, Type[ManifestParser]] = {
     "package.json": PackageJsonParser,
     "requirements.txt": RequirementsTxtParser,
     "pyproject.toml": PyProjectTomlParser,
     "go.mod": GoModParser,
-    "Cargo.toml": CargoTomlParser
+    "Cargo.toml": CargoTomlParser,
+    "pom.xml": PomXmlParser
 }

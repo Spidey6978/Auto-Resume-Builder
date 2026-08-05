@@ -23,15 +23,33 @@ class ProfileMerger:
         self._merge_awards(extraction_result.awards)
         self._merge_skills(extraction_result.skills)
         
+    def _merge_facts(self, match_facts: list, inc_facts: list) -> list:
+        if not inc_facts:
+            return match_facts
+            
+        incoming_sources = set()
+        for f in inc_facts:
+            for ref in f.source_refs:
+                incoming_sources.add(ref.id)
+                
+        retained_facts = []
+        for f in match_facts:
+            f_sources = {ref.id for ref in f.source_refs}
+            if not f_sources.intersection(incoming_sources):
+                retained_facts.append(f)
+                
+        retained_facts.extend(inc_facts)
+        return retained_facts
+        
     def _merge_experience(self, incoming_items: List[ExperienceItem]):
         for inc in incoming_items:
             outcome, match = self.matcher.match_experience(inc, self.profile.experience)
             if outcome == MatchOutcome.NEW:
                 self.profile.experience.append(inc)
             elif outcome == MatchOutcome.MATCH:
-                # Merge missing fields
                 if not match.location and inc.location: match.location = inc.location
                 if not match.end_date and inc.end_date: match.end_date = inc.end_date
+                match.facts = self._merge_facts(match.facts, inc.facts)
             elif outcome == MatchOutcome.CONFLICT:
                 logger.warning(f"Conflict detected for experience '{inc.organization}'. Canonical preserved.")
                 
@@ -55,6 +73,7 @@ class ProfileMerger:
                 if not match.link and inc.link: match.link = inc.link
                 # Merge tech stack order-preserving without duplicates
                 match.tech_stack = list(dict.fromkeys(match.tech_stack + inc.tech_stack))
+                match.facts = self._merge_facts(match.facts, inc.facts)
             elif outcome == MatchOutcome.CONFLICT:
                 logger.warning(f"Conflict detected for project '{inc.name}'. Canonical preserved.")
                 
@@ -67,6 +86,7 @@ class ProfileMerger:
                 if not match.organization and inc.organization: match.organization = inc.organization
                 if not match.event and inc.event: match.event = inc.event
                 if not match.year and inc.year: match.year = inc.year
+                match.facts = self._merge_facts(match.facts, inc.facts)
             elif outcome == MatchOutcome.CONFLICT:
                 logger.warning(f"Conflict detected for award '{inc.title}'. Canonical preserved.")
                 

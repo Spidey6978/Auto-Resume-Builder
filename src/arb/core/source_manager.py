@@ -34,7 +34,7 @@ class SourceManager:
             return SourceRegistryModel.from_dict(data)
         except Exception as e:
             logger.error(f"Failed to load sources from {self.sources_path}: {e}")
-            return SourceRegistryModel()
+            raise RuntimeError(f"SourceRegistry is corrupted or unreadable at {self.sources_path}: {e}")
 
     def save(self):
         """Atomically saves the registry to sources.yaml."""

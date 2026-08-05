@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from jinja2 import Environment, FileSystemLoader
 from arb.core.sanitizer import escape_latex, sanitize_data
-from arb.core.compilers.engines import CompilationResult, LatexEngine, LuaLaTeXEngine
+from arb.core.compilers.engines import CompilationResult, LatexEngine, LuaLaTeXEngine, TectonicEngine
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class ResumeCompiler:
 
     def __init__(self, templates_dir: str, engine: LatexEngine = None):
         self.templates_dir = templates_dir
-        self.engine = engine or LuaLaTeXEngine()
+        self.engine = engine or TectonicEngine()
         self.env = Environment(
             loader=FileSystemLoader(self.templates_dir),
             block_start_string="\\BLOCK{",
@@ -45,6 +45,15 @@ class ResumeCompiler:
         import dataclasses
         # Convert document dataclass back to dictionary for Jinja2
         doc_dict = dataclasses.asdict(document)
+        
+        # Inject build_root
+        doc_dict["build_root"] = output_dir
+        
+        # Flatten personal info
+        if "personal" in doc_dict and isinstance(doc_dict["personal"], dict):
+            for k, v in doc_dict["personal"].items():
+                if k not in doc_dict:
+                    doc_dict[k] = v
         
         rendered_tex = self.render("resume_template.tex", doc_dict)
         

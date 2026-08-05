@@ -4,7 +4,8 @@ import logging
 from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
 
-from arb.models.domain import Fact, TargetContext, Project
+from arb.models.domain import Fact, TargetContext, Project, ExperienceItem
+from typing import Union
 from arb.core.ai_gateway import AIGateway
 from arb.core.cache import CacheManager
 from arb.models.plan import ResolvedPolicies
@@ -121,7 +122,7 @@ class FactRanker:
         
         cached_selection = self.cache.get(self.CACHE_NAMESPACE, cache_key)
         if cached_selection and isinstance(cached_selection, list):
-            fact_map = {sf.fact.id: sf.fact for sf in candidates}
+            fact_map = {sf.fact.id: sf for sf in candidates}
             selected = [fact_map[fid] for fid in cached_selection if fid in fact_map]
             if selected:
                 return selected[:max_facts], "cache_hit_reranked"
@@ -177,24 +178,24 @@ Example: ["fact_1", "fact_3", "fact_2"]
             logger.error(f"Semantic reranking failed: {e}")
             return scored_facts[:max_facts], "fallback_deterministic"
 
-    def rank_facts(self, project: Project, target: TargetContext, policies: ResolvedPolicies, mock_ai: bool = False, max_facts: int = 5) -> Tuple[List[ScoredFact], str]:
+    def rank_facts(self, entity: Union[Project, ExperienceItem], target: TargetContext, policies: ResolvedPolicies, mock_ai: bool = False, max_facts: int = 5) -> Tuple[List[ScoredFact], str]:
         """
-        Main entry point for ranking facts.
+        Main entry point for ranking facts for a project or experience item.
         """
-        if len(project.facts) <= max_facts:
-            return [ScoredFact(fact=f, score=0.0, reasons=["unfiltered_passthrough"]) for f in project.facts], "success_unfiltered"
-
         # 1. Deterministic Scoring
-        scored_facts = [self._deterministic_score(f, target, policies) for f in project.facts]
+        scored_facts = [self._deterministic_score(f, target, policies) for f in entity.facts]
         
         # Sort descending by score
         scored_facts.sort(key=lambda sf: sf.score, reverse=True)
         
+        if len(entity.facts) <= max_facts:
+            return scored_facts, "success_unfiltered"
+        
         # 2. Check if we need AI
         if self._needs_semantic_rerank(scored_facts, max_facts):
-            logger.info(f"FactRanker: Semantic rerank triggered for project '{project.id}'.")
+            logger.info(f"FactRanker: Semantic rerank triggered for entity '{entity.id}'.")
             return self._ai_rerank(scored_facts, target, max_facts, mock_ai=mock_ai)
             
         # 3. Fast path: Deterministic is confident
-        logger.info(f"FactRanker: Deterministic ranking confident for project '{project.id}'.")
+        logger.info(f"FactRanker: Deterministic ranking confident for entity '{entity.id}'.")
         return scored_facts[:max_facts], "deterministic_confident"

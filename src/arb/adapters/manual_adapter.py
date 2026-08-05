@@ -17,9 +17,24 @@ class ManualAdapter(BaseAdapter):
 
     def ingest(self, identifier: str) -> SourceResult:
         """
-        identifier is the entity type: 'experience', 'project', 'education', 'award', 'skill'
+        identifier is a JSON string representing the payload.
+        Expected format:
+        {
+            "entity_type": "experience|project|education|award",
+            "data": { ... }
+        }
         """
-        entity_type = identifier.lower()
+        try:
+            payload = json.loads(identifier)
+        except json.JSONDecodeError:
+            return SourceResult(
+                source_type="manual",
+                source_id="manual:cli",
+                status=SourceStatus.FAILED,
+                metadata={"error": "Identifier must be a valid JSON payload for manual adapter."}
+            )
+            
+        entity_type = payload.get("entity_type", "").lower()
         supported = ["experience", "project", "education", "award"]
         
         if entity_type not in supported:
@@ -30,28 +45,32 @@ class ManualAdapter(BaseAdapter):
                 metadata={"error": f"Unsupported manual entity type '{entity_type}'. Must be one of: {', '.join(supported)}"}
             )
             
-        print(f"\n--- Adding Manual {entity_type.capitalize()} ---")
-        
-        data = {}
-        if entity_type == "experience":
-            data = self._prompt_experience()
-        elif entity_type == "project":
-            data = self._prompt_project()
-        elif entity_type == "education":
-            data = self._prompt_education()
-        elif entity_type == "award":
-            data = self._prompt_award()
-            
+        data = payload.get("data", {})
         if not data:
             return SourceResult(
                 source_type="manual",
                 source_id="manual:cli",
                 status=SourceStatus.FAILED,
-                metadata={"error": "User cancelled or provided empty data."}
+                metadata={"error": "Empty data payload."}
             )
             
         # Create a unique ID for this manual entry
         entry_id = f"manual_{uuid.uuid4().hex[:8]}"
+        
+        # We can format facts if they are passed as strings
+        if "facts" in data and isinstance(data["facts"], list):
+            formatted_facts = []
+            for f in data["facts"]:
+                if isinstance(f, str):
+                    formatted_facts.append({
+                        "id": f"fact_{uuid.uuid4().hex[:8]}",
+                        "text": f,
+                        "fact_type": "general",
+                        "source_refs": [{"type": "manual", "id": "manual:cli"}]
+                    })
+                elif isinstance(f, dict):
+                    formatted_facts.append(f)
+            data["facts"] = formatted_facts
         
         evidence = EvidenceItem(
             id=entry_id,
@@ -60,9 +79,6 @@ class ManualAdapter(BaseAdapter):
             provenance=SourceRef(type="manual", id="manual:cli")
         )
         
-        # We set source_id to a timestamp-based ID so the SourceManager knows it's a unique manual session
-        # Or just use manual:cli. But if we use manual:cli, SourceManager will only track one record for all manual syncs.
-        # Actually, it's fine. We can just update the `last_synced` of the `manual:cli` source record.
         return SourceResult(
             source_type="manual",
             source_id="manual:cli",
@@ -73,101 +89,4 @@ class ManualAdapter(BaseAdapter):
 
     def _prompt_experience(self) -> Dict[str, Any]:
         org = input("Organization/Company: ").strip()
-        if not org: return {}
-        
-        title = input("Job Title: ").strip()
-        if not title: return {}
-        
-        start_date = input("Start Date (e.g., 2020): ").strip()
-        end_date = input("End Date (e.g., 2022, Present): ").strip()
-        
-        print("\nEnter facts/bullets for this experience (leave blank to finish):")
-        facts = []
-        while True:
-            fact = input(" - ").strip()
-            if not fact: break
-            facts.append({
-                "id": f"fact_{uuid.uuid4().hex[:8]}",
-                "text": fact,
-                "fact_type": "general",
-                "source_refs": [{"type": "manual", "id": "manual:cli"}]
-            })
-            
-        return {
-            "organization": org,
-            "title": title,
-            "start_date": start_date,
-            "end_date": end_date,
-            "facts": facts
-        }
 
-    def _prompt_project(self) -> Dict[str, Any]:
-        name = input("Project Name: ").strip()
-        if not name: return {}
-        
-        link = input("Link (optional): ").strip()
-        tech = input("Tech Stack (comma separated): ").strip()
-        
-        print("\nEnter facts/bullets for this project (leave blank to finish):")
-        facts = []
-        while True:
-            fact = input(" - ").strip()
-            if not fact: break
-            facts.append({
-                "id": f"fact_{uuid.uuid4().hex[:8]}",
-                "text": fact,
-                "fact_type": "general",
-                "source_refs": [{"type": "manual", "id": "manual:cli"}]
-            })
-            
-        return {
-            "name": name,
-            "link": link,
-            "tech_stack": [t.strip() for t in tech.split(",")] if tech else [],
-            "facts": facts
-        }
-
-    def _prompt_education(self) -> Dict[str, Any]:
-        inst = input("Institution/School: ").strip()
-        if not inst: return {}
-        
-        degree = input("Degree (e.g., B.S. Computer Science): ").strip()
-        if not degree: return {}
-        
-        start_date = input("Start Date: ").strip()
-        end_date = input("End Date: ").strip()
-        
-        return {
-            "institution": inst,
-            "degree": degree,
-            "start_date": start_date,
-            "end_date": end_date
-        }
-
-    def _prompt_award(self) -> Dict[str, Any]:
-        title = input("Award Title: ").strip()
-        if not title: return {}
-        
-        event = input("Event/Competition (optional): ").strip()
-        org = input("Organization (optional): ").strip()
-        year = input("Year (optional): ").strip()
-        
-        print("\nEnter facts/bullets for this award (leave blank to finish):")
-        facts = []
-        while True:
-            fact = input(" - ").strip()
-            if not fact: break
-            facts.append({
-                "id": f"fact_{uuid.uuid4().hex[:8]}",
-                "text": fact,
-                "fact_type": "general",
-                "source_refs": [{"type": "manual", "id": "manual:cli"}]
-            })
-            
-        return {
-            "title": title,
-            "event": event,
-            "organization": org,
-            "year": year,
-            "facts": facts
-        }

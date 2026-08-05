@@ -275,10 +275,63 @@ def handle_build(args):
 def handle_source(args):
     if args.source_cmd == "add":
         if args.type in ["github", "document", "manual", "linkedin"]:
-            if args.type == "manual" and args.entity:
-                args.identifier = args.entity
-            elif args.type == "manual":
-                args.identifier = input("Entity type to add (experience, project, education, award): ").strip()
+            if args.type == "manual":
+                entity_type = args.entity or input("Entity type to add (experience, project, education, award): ").strip()
+                
+                print(f"\n--- Adding Manual {entity_type.capitalize()} ---")
+                data = {}
+                if entity_type == "experience":
+                    org = input("Organization/Company: ").strip()
+                    title = input("Job Title: ").strip()
+                    if org and title:
+                        start_date = input("Start Date (e.g., 2020): ").strip()
+                        end_date = input("End Date (e.g., 2022, Present): ").strip()
+                        print("\nEnter facts/bullets for this experience (leave blank to finish):")
+                        facts = []
+                        while True:
+                            fact = input(" - ").strip()
+                            if not fact: break
+                            facts.append(fact)
+                        data = {"organization": org, "title": title, "start_date": start_date, "end_date": end_date, "facts": facts}
+                elif entity_type == "project":
+                    name = input("Project Name: ").strip()
+                    if name:
+                        link = input("Link (optional): ").strip()
+                        tech = input("Tech Stack (comma separated): ").strip()
+                        print("\nEnter facts/bullets for this project (leave blank to finish):")
+                        facts = []
+                        while True:
+                            fact = input(" - ").strip()
+                            if not fact: break
+                            facts.append(fact)
+                        data = {"name": name, "link": link, "tech_stack": [t.strip() for t in tech.split(",")] if tech else [], "facts": facts}
+                elif entity_type == "education":
+                    inst = input("Institution/School: ").strip()
+                    degree = input("Degree (e.g., B.S. Computer Science): ").strip()
+                    if inst and degree:
+                        start_date = input("Start Date: ").strip()
+                        end_date = input("End Date: ").strip()
+                        data = {"institution": inst, "degree": degree, "start_date": start_date, "end_date": end_date}
+                elif entity_type == "award":
+                    title = input("Award Title: ").strip()
+                    if title:
+                        event = input("Event/Competition (optional): ").strip()
+                        org = input("Organization (optional): ").strip()
+                        year = input("Year (optional): ").strip()
+                        print("\nEnter facts/bullets for this award (leave blank to finish):")
+                        facts = []
+                        while True:
+                            fact = input(" - ").strip()
+                            if not fact: break
+                            facts.append(fact)
+                        data = {"title": title, "event": event, "organization": org, "year": year, "facts": facts}
+
+                if not data:
+                    print("User cancelled or provided empty data.")
+                    return
+                
+                import json
+                args.identifier = json.dumps({"entity_type": entity_type, "data": data})
                 
             pipeline, _, _ = init_services(args)
             if args.type != "manual":

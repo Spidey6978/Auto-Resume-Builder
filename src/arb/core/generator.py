@@ -86,24 +86,21 @@ class ContentGenerator:
             
         cache_key = self._fingerprint(temp_proj, target)
         
-        cached_text = self.cache.get(self.CACHE_NAMESPACE, cache_key)
-        if cached_text:
+        cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
+        if cached_bullets and isinstance(cached_bullets, list):
+            # We assume it's a list of dicts now
             rendered_bullets = []
-            for i, text in enumerate(cached_text):
-                if i < len(planned_project.selected_facts):
-                    pf = planned_project.selected_facts[i]
-                    rb = RenderedBullet(
-                        text=text,
-                        source_fact_ids=[pf.fact_id],
-                        relevance_score=pf.relevance_score
-                    )
+            for b_dict in cached_bullets:
+                # handle legacy cache migration if it was a list of strings
+                if isinstance(b_dict, str):
+                    rb = RenderedBullet(text=b_dict, source_fact_ids=[], relevance_score=0.0)
                 else:
-                    rb = RenderedBullet(text=text, source_fact_ids=[], relevance_score=0.0)
+                    rb = RenderedBullet.from_dict(b_dict)
                 rendered_bullets.append(rb)
             return GenerationResult(rendered_bullets, GenerationStatus.SUCCESS)
             
         # Fact payload for the LLM
-        fact_text = "\n".join([f"- [{f.fact_type}] {f.text} (Metric: {f.metric or 'N/A'})" for f in selected_facts])
+        fact_text = "\n".join([f"- [{f.id}] {f.text} (Metric: {f.metric or 'N/A'})" for f in selected_facts])
         tech_context = ", ".join(project.tech_stack) if project.tech_stack else "None specified"
         
         prompt = f"""
@@ -125,41 +122,152 @@ class ContentGenerator:
         - Start each bullet with a strong, VARIED past-tense action verb (e.g., Architected, Engineered, Optimized, Integrated).
         - Optimize for clarity, technical specificity, impact, and brevity.
         - Keep each bullet punchy, around 15-25 words.
-        - DO NOT include markdown formatting like asterisks (*), bolding, or hyphens at the start.
-        - Return ONLY the bullet points separated by a newline.
+        - Return ONLY a JSON array of objects with this schema:
+        [
+          {{
+            "text": "The bullet text without markdown formatting",
+            "source_fact_ids": ["fact_id_1", "fact_id_2"]
+          }}
+        ]
         """
 
         try:
             response_text = self.ai.generate_text(prompt, mock_ai=mock_ai, model_hint=project.name)
+            # Try to extract JSON array
+            json_start = response_text.find('[')
+            json_end = response_text.rfind(']') + 1
+            if json_start != -1 and json_end != -1:
+                parsed_array = json.loads(response_text[json_start:json_end])
+            else:
+                parsed_array = []
         except Exception as e:
             return GenerationResult(bullets=[], status=GenerationStatus.AI_ERROR, error=str(e))
 
-        # Clean bullets
-        bullets_text = response_text.strip().split("\n")
-        cleaned_text = [b.lstrip("- *•").strip() for b in bullets_text if b.strip()]
-
-        if not cleaned_text:
-            return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty response")
+        if not parsed_array:
+            return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty or invalid JSON response")
 
         # Map to RenderedBullet
         rendered_bullets = []
-        for i, text in enumerate(cleaned_text):
-            # Try to associate with the corresponding PlannedFact by index
-            if i < len(planned_project.selected_facts):
-                pf = planned_project.selected_facts[i]
-                rb = RenderedBullet(
-                    text=text,
-                    source_fact_ids=[pf.fact_id],
-                    relevance_score=pf.relevance_score
-                )
-            else:
-                # Fallback if LLM generated extra bullets
-                rb = RenderedBullet(
-                    text=text,
-                    source_fact_ids=[],
-                    relevance_score=0.0
-                )
+        for item in parsed_array:
+            text = item.get("text", "").strip()
+            if not text:
+                continue
+                
+            src_ids = item.get("source_fact_ids", [])
+            # Calculate relevance: max of source facts
+            scores = []
+            for sid in src_ids:
+                pf = next((pf for pf in planned_project.selected_facts if pf.fact_id == sid), None)
+                if pf:
+                    scores.append(pf.relevance_score)
+            
+            rel_score = max(scores) if scores else 0.0
+            
+            rb = RenderedBullet(
+                text=text,
+                source_fact_ids=src_ids,
+                relevance_score=rel_score
+            )
             rendered_bullets.append(rb)
 
-        self.cache.set(self.CACHE_NAMESPACE, cache_key, cleaned_text)
+        self.cache.set(self.CACHE_NAMESPACE, cache_key, [b.to_dict() for b in rendered_bullets])
+        return GenerationResult(bullets=rendered_bullets, status=GenerationStatus.SUCCESS)
+
+    def generate_experience_bullets(self, profile: CanonicalProfile, planned_experience: PlannedExperience, target: TargetContext, mock_ai: bool = False) -> GenerationResult:
+        """
+        Generates ATS-optimized bullets for an experience item.
+        """
+        exp = next((e for e in profile.experience if e.id == planned_experience.experience_id), None)
+        if not exp:
+            return GenerationResult([], GenerationStatus.INSUFFICIENT_DATA)
+            
+        fact_ids = [pf.fact_id for pf in planned_experience.selected_facts]
+        fact_map = {f.id: f for f in exp.facts}
+        selected_facts = [fact_map[fid] for fid in fact_ids if fid in fact_map]
+        
+        if not selected_facts:
+            return GenerationResult([], GenerationStatus.INSUFFICIENT_DATA)
+            
+        # Simplified hash just for experience facts
+        sorted_facts = sorted(selected_facts, key=lambda f: f.id)
+        fact_payload = [{"id": f.id, "text": f.text, "type": f.fact_type, "metric": f.metric} for f in sorted_facts]
+        payload = {
+            "exp_id": exp.id,
+            "target_id": target.id,
+            "target_desc": target.description,
+            "facts": fact_payload,
+            "prompt_version": self.PROMPT_VERSION + "-exp"
+        }
+        cache_key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode('utf-8')).hexdigest()
+        
+        cached_bullets = self.cache.get(self.CACHE_NAMESPACE, cache_key)
+        if cached_bullets and isinstance(cached_bullets, list):
+            rendered_bullets = [RenderedBullet.from_dict(d) for d in cached_bullets]
+            return GenerationResult(rendered_bullets, GenerationStatus.SUCCESS)
+            
+        fact_text = "\n".join([f"- [{f.id}] {f.text} (Metric: {f.metric or 'N/A'})" for f in selected_facts])
+        
+        prompt = f"""
+        You are an elite ATS resume writer and senior engineering recruiter.
+        Your task is to generate concise resume bullets emphasizing technical impact and relevant terminology.
+        
+        CRITICAL RULE: You must make ONLY claims supported by the supplied facts. Do NOT invent or infer features.
+        
+        Experience Context:
+        Organization: {exp.organization}
+        Role: {exp.role}
+        Target Role Focus: {target.description}
+        
+        Extracted Facts:
+        {fact_text}
+        
+        Rules:
+        - Generate 2-3 professional, highly technical resume bullet points.
+        - Start each bullet with a strong, VARIED past-tense action verb (e.g., Architected, Engineered, Optimized, Integrated).
+        - Optimize for clarity, technical specificity, impact, and brevity.
+        - Keep each bullet punchy, around 15-25 words.
+        - Return ONLY a JSON array of objects with this schema:
+        [
+          {{
+            "text": "The bullet text without markdown formatting",
+            "source_fact_ids": ["fact_id_1", "fact_id_2"]
+          }}
+        ]
+        """
+
+        try:
+            response_text = self.ai.generate_text(prompt, mock_ai=mock_ai, model_hint=exp.organization)
+            json_start = response_text.find('[')
+            json_end = response_text.rfind(']') + 1
+            if json_start != -1 and json_end != -1:
+                parsed_array = json.loads(response_text[json_start:json_end])
+            else:
+                parsed_array = []
+        except Exception as e:
+            return GenerationResult(bullets=[], status=GenerationStatus.AI_ERROR, error=str(e))
+
+        if not parsed_array:
+            return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty or invalid JSON response")
+
+        rendered_bullets = []
+        for item in parsed_array:
+            text = item.get("text", "").strip()
+            if not text:
+                continue
+            src_ids = item.get("source_fact_ids", [])
+            scores = []
+            for sid in src_ids:
+                pf = next((pf for pf in planned_experience.selected_facts if pf.fact_id == sid), None)
+                if pf:
+                    scores.append(pf.relevance_score)
+            rel_score = max(scores) if scores else 0.0
+            
+            rb = RenderedBullet(
+                text=text,
+                source_fact_ids=src_ids,
+                relevance_score=rel_score
+            )
+            rendered_bullets.append(rb)
+
+        self.cache.set(self.CACHE_NAMESPACE, cache_key, [b.to_dict() for b in rendered_bullets])
         return GenerationResult(bullets=rendered_bullets, status=GenerationStatus.SUCCESS)

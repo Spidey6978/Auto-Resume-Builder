@@ -92,4 +92,28 @@ class TargetEngine:
             )
             plan.projects.append(planned_proj)
             
+        # Process experience facts
+        if "experience" in allowed_entities:
+            for exp in profile.experience:
+                if self.ranker:
+                    scored_facts, status = self.ranker.rank_facts(exp, target, plan.policies, mock_ai=mock_ai)
+                else:
+                    from arb.core.fact_ranker import ScoredFact
+                    scored_facts, status = [ScoredFact(fact=f, score=0.0, reasons=["fallback_unranked"]) for f in exp.facts[:5]], "fallback_unranked"
+                
+                planned_facts = [
+                    PlannedFact(
+                        fact_id=sf.fact.id, 
+                        relevance_score=sf.score, 
+                        reasons=sf.reasons, 
+                        targeting_status=status
+                    ) for sf in scored_facts
+                ]
+                
+                planned_exp = PlannedExperience(
+                    experience_id=exp.id,
+                    selected_facts=planned_facts
+                )
+                plan.experience.append(planned_exp)
+            
         return plan

@@ -8,6 +8,8 @@ from arb.core.profile_manager import ProfileManager
 from arb.core.fact_extractor import FactExtractor
 from arb.core.generator import ContentGenerator
 from arb.core.compiler import ResumeCompiler
+import hashlib
+import json
 from arb.adapters.registry import AdapterRegistry
 from arb.core.normalizer import normalize_languages
 from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
@@ -97,16 +99,18 @@ class BuildPipeline:
                 should_skip = False
                 
                 if existing and existing.status == "success":
-                    if source_type == "document":
-                        should_skip = True # ID is hash
-                    elif source_type == "linkedin":
-                        if source_result.source_id == existing.id:
-                            should_skip = True
-                    elif source_type == "github":
-                        new_etag = source_result.metadata.get("etag")
-                        old_etag = existing.metadata.get("etag")
-                        if new_etag and new_etag == old_etag:
-                            should_skip = True
+                    if source_type in ("document", "linkedin"):
+                        # these used ID matching which implicitly meant new files got new IDs, 
+                        # but we can rely on hashing now for all.
+                        pass
+                    
+                    # Compute evidence hash
+                    evidence_json = json.dumps([e.to_dict() for e in source_result.evidence], sort_keys=True)
+                    new_hash = hashlib.sha256(evidence_json.encode('utf-8')).hexdigest()
+                    
+                    old_hash = existing.last_ingested_hash
+                    if old_hash and new_hash == old_hash:
+                        should_skip = True
                             
                 if should_skip:
                     existing.last_synced = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -130,6 +134,11 @@ class BuildPipeline:
                 extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
                 languages_dict = source_result.metadata.get("languages", {})
                 normalized_stack = normalize_languages(languages_dict)
+                frameworks = source_result.metadata.get("frameworks", [])
+                
+                # Ordered union
+                combined_stack = list(dict.fromkeys(normalized_stack + frameworks))
+                
                 raw_name = source_result.metadata.get("name", source_result.source_id.split("/")[-1])
                 link = source_result.metadata.get("link")
                 
@@ -141,12 +150,19 @@ class BuildPipeline:
                     id=source_result.source_id,
                     name=raw_name,
                     link=link,
-                    tech_stack=normalized_stack,
+                    tech_stack=combined_stack,
                     category=[],
                     facts=extraction_result.facts if extraction_result.status in ("success", "no_facts") else []
                 )
                 extraction = EntityExtractionResult(projects=[p])
                 merger.merge(extraction)
+
+            elif source_type in ("manual", "linkedin"):
+                if not self.evidence_extractor:
+                    return SyncResult(False, f"{source_type.title()} ingestion dependencies not configured.")
+                for ev in source_result.evidence:
+                    extraction = self.evidence_extractor.extract(ev, mock_ai=mock_ai)
+                    merger.merge(extraction)
 
             # Save Atomic
             self.profile_manager.save()
@@ -171,7 +187,7 @@ class BuildPipeline:
                     last_synced=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     status="success",
                     adapter_version=source_result.metadata.get("adapter_version"),
-                    last_ingested_hash=source_result.metadata.get("etag") or source_result.metadata.get("hash"),
+                    last_ingested_hash=new_hash,
                     metadata=source_result.metadata
                 )
                 self.source_manager.upsert_source(record)
@@ -194,28 +210,56 @@ class BuildPipeline:
         allowed_entities = plan.allowed_entities
         
         rendered_projects = []
-        for planned_proj in plan.projects:
-            # find original project to get non-bullet info
-            proj = next((p for p in raw_profile.projects if p.id == planned_proj.project_id), None)
-            if not proj:
-                continue
-                
-            gen_result = self.generator.generate_project_bullets(raw_profile, planned_proj, target=target, mock_ai=mock_ai)
-            bullets = gen_result.bullets if gen_result.status == "success" else []
-            if not bullets and gen_result.status != "success":
-                logger.warning(f"Failed to generate bullets for '{proj.name}' ({gen_result.status}).")
-                
-            rendered_projects.append(RenderedProject(
-                id=proj.id,
-                name=proj.name,
-                link=proj.link,
-                tech_stack=proj.tech_stack,
-                bullets=bullets
-            ))
-            
-        # For experience and awards, if we later add fact extraction to them, we would generate bullets here.
-        # Currently, the canonical profile doesn't have a direct field for old raw bullets. 
-        # If human added bullets manually in legacy yaml, we can pass them through for now, or just leave them empty.
+        for proj in plan.projects:
+            if not self.generator:
+                break
+            res = self.generator.generate_project_bullets(raw_profile, proj, target, mock_ai=mock_ai)
+            if res.status == "success":
+                canonical_proj = next((p for p in raw_profile.projects if p.id == proj.project_id), None)
+                if canonical_proj:
+                    rp = RenderedProject(
+                        id=proj.project_id,
+                        name=canonical_proj.name,
+                        tech_stack=canonical_proj.tech_stack,
+                        link=canonical_proj.link,
+                        bullets=res.bullets
+                    )
+                    rendered_projects.append(rp)
+                    
+        rendered_experience = []
+        if "experience" in allowed_entities:
+            for exp in plan.experience:
+                if not self.generator:
+                    # Fallback to no bullets if generator missing
+                    canonical_exp = next((e for e in raw_profile.experience if e.id == exp.experience_id), None)
+                    if canonical_exp:
+                        re_obj = RenderedExperience(
+                            id=exp.experience_id,
+                            organization=canonical_exp.organization,
+                            role=canonical_exp.role,
+                            location=canonical_exp.location,
+                            start_date=canonical_exp.start_date,
+                            end_date=canonical_exp.end_date,
+                            bullets=[]
+                        )
+                        rendered_experience.append(re_obj)
+                    continue
+                    
+                res = self.generator.generate_experience_bullets(raw_profile, exp, target, mock_ai=mock_ai)
+                if res.status == "success":
+                    canonical_exp = next((e for e in raw_profile.experience if e.id == exp.experience_id), None)
+                    if canonical_exp:
+                        re_obj = RenderedExperience(
+                            id=exp.experience_id,
+                            organization=canonical_exp.organization,
+                            role=canonical_exp.role,
+                            location=canonical_exp.location,
+                            start_date=canonical_exp.start_date,
+                            end_date=canonical_exp.end_date,
+                            bullets=res.bullets
+                        )
+                        rendered_experience.append(re_obj)
+        
         rendered_awards = []
         if "awards" in allowed_entities:
             for awd in raw_profile.awards:
@@ -226,19 +270,6 @@ class BuildPipeline:
                     organization=awd.organization,
                     year=awd.year,
                     bullets=[]
-                ))
-                
-        rendered_experience = []
-        if "experience" in allowed_entities:
-            for exp in raw_profile.experience:
-                rendered_experience.append(RenderedExperience(
-                    id=exp.id,
-                    organization=exp.organization,
-                    title=exp.title,
-                    location=exp.location,
-                    start_date=exp.start_date,
-                    end_date=exp.end_date,
-                    bullets=[]  # To be implemented when we generate experience bullets
                 ))
             
         # Retrieve section_order from policies, or use a default

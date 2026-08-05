@@ -3,6 +3,7 @@ import zipfile
 import tempfile
 import uuid
 import datetime
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -34,38 +35,45 @@ class LinkedInAdapter(BaseAdapter):
         evidence_items = []
         warnings = []
 
+        # Hash the file/folder for deterministic identity
+        hasher = hashlib.sha256()
+        if path.is_file():
+            with open(path, 'rb') as f:
+                hasher.update(f.read())
+        elif path.is_dir():
+            for child in sorted(path.rglob('*')):
+                if child.is_file():
+                    with open(child, 'rb') as f:
+                        hasher.update(f.read())
+        
+        source_id = f"linkedin:{hasher.hexdigest()[:12]}"
+
         if path.is_file() and path.suffix.lower() == ".zip":
             with tempfile.TemporaryDirectory() as temp_dir:
                 try:
                     with zipfile.ZipFile(path, 'r') as zip_ref:
                         zip_ref.extractall(temp_dir)
-                    items, w = self._process_directory(Path(temp_dir))
+                    items, w = self._process_directory(Path(temp_dir), source_id)
                     evidence_items.extend(items)
                     warnings.extend(w)
                 except zipfile.BadZipFile:
                     return SourceResult(
                         source_type="linkedin",
-                        source_id="linkedin:export",
+                        source_id=source_id,
                         status=SourceStatus.FAILED,
                         metadata={"error": f"Invalid ZIP file: {identifier}"}
                     )
         elif path.is_dir():
-            items, w = self._process_directory(path)
+            items, w = self._process_directory(path, source_id)
             evidence_items.extend(items)
             warnings.extend(w)
         else:
             return SourceResult(
                 source_type="linkedin",
-                source_id="linkedin:export",
+                source_id=source_id,
                 status=SourceStatus.FAILED,
                 metadata={"error": f"Path is neither a directory nor a ZIP: {identifier}"}
             )
-
-        # source_id can be based on the file modified time or simply a static ID since we rely on SourceManager's last_synced
-        # Actually, using a hash of the file could enable differential syncing.
-        # But for now, we'll just use a static ID or one based on file modification time.
-        stat = path.stat()
-        source_id = f"linkedin:{stat.st_size}_{stat.st_mtime}"
 
         return SourceResult(
             source_type="linkedin",
@@ -75,7 +83,7 @@ class LinkedInAdapter(BaseAdapter):
             metadata={"warnings": warnings, "name": path.name, "adapter_version": "v1"}
         )
 
-    def _process_directory(self, dir_path: Path) -> tuple[List[EvidenceItem], List[str]]:
+    def _process_directory(self, dir_path: Path, source_id: str) -> tuple[List[EvidenceItem], List[str]]:
         evidence = []
         warnings = []
         
@@ -94,7 +102,7 @@ class LinkedInAdapter(BaseAdapter):
             file_path = dir_path / file_name
             if file_path.exists():
                 try:
-                    items = handler(file_path)
+                    items = handler(file_path, source_id)
                     evidence.extend(items)
                 except Exception as e:
                     warnings.append(f"Failed to parse {file_name}: {e}")
@@ -119,7 +127,7 @@ class LinkedInAdapter(BaseAdapter):
                 reader = csv.DictReader(f)
                 return list(reader)
 
-    def _parse_positions(self, file_path: Path) -> List[EvidenceItem]:
+    def _parse_positions(self, file_path: Path, source_id: str) -> List[EvidenceItem]:
         items = []
         rows = self._safe_read_csv(file_path)
         for row in rows:
@@ -147,7 +155,7 @@ class LinkedInAdapter(BaseAdapter):
                             "id": f"fact_{uuid.uuid4().hex[:8]}",
                             "text": line,
                             "fact_type": "general",
-                            "source_refs": [{"type": "linkedin", "id": "linkedin:export"}]
+                            "source_refs": [{"type": "linkedin", "id": source_id}]
                         })
             
             data = {
@@ -163,11 +171,11 @@ class LinkedInAdapter(BaseAdapter):
                 id=f"linkedin_exp_{uuid.uuid4().hex[:8]}",
                 kind="experience",
                 content=data,
-                provenance=SourceRef(type="linkedin", id="linkedin:export")
+                provenance=SourceRef(type="linkedin", id=source_id)
             ))
         return items
 
-    def _parse_education(self, file_path: Path) -> List[EvidenceItem]:
+    def _parse_education(self, file_path: Path, source_id: str) -> List[EvidenceItem]:
         items = []
         rows = self._safe_read_csv(file_path)
         for row in rows:
@@ -190,11 +198,11 @@ class LinkedInAdapter(BaseAdapter):
                 id=f"linkedin_edu_{uuid.uuid4().hex[:8]}",
                 kind="education",
                 content=data,
-                provenance=SourceRef(type="linkedin", id="linkedin:export")
+                provenance=SourceRef(type="linkedin", id=source_id)
             ))
         return items
 
-    def _parse_projects(self, file_path: Path) -> List[EvidenceItem]:
+    def _parse_projects(self, file_path: Path, source_id: str) -> List[EvidenceItem]:
         items = []
         rows = self._safe_read_csv(file_path)
         for row in rows:
@@ -211,7 +219,7 @@ class LinkedInAdapter(BaseAdapter):
                     "id": f"fact_{uuid.uuid4().hex[:8]}",
                     "text": desc,
                     "fact_type": "general",
-                    "source_refs": [{"type": "linkedin", "id": "linkedin:export"}]
+                    "source_refs": [{"type": "linkedin", "id": source_id}]
                 })
                 
             data = {
@@ -225,11 +233,11 @@ class LinkedInAdapter(BaseAdapter):
                 id=f"linkedin_proj_{uuid.uuid4().hex[:8]}",
                 kind="projects",
                 content=data,
-                provenance=SourceRef(type="linkedin", id="linkedin:export")
+                provenance=SourceRef(type="linkedin", id=source_id)
             ))
         return items
 
-    def _parse_skills(self, file_path: Path) -> List[EvidenceItem]:
+    def _parse_skills(self, file_path: Path, source_id: str) -> List[EvidenceItem]:
         items = []
         rows = self._safe_read_csv(file_path)
         skills = []
@@ -243,6 +251,6 @@ class LinkedInAdapter(BaseAdapter):
                 id=f"linkedin_skills_{uuid.uuid4().hex[:8]}",
                 kind="skills",
                 content={"General": skills},
-                provenance=SourceRef(type="linkedin", id="linkedin:export")
+                provenance=SourceRef(type="linkedin", id=source_id)
             ))
         return items
