@@ -8,7 +8,7 @@ from core.profile_manager import ProfileManager
 from core.fact_extractor import FactExtractor
 from core.generator import ContentGenerator
 from core.compiler import ResumeCompiler
-from adapters.github_adapter import GitHubAdapter
+from adapters.registry import AdapterRegistry
 from core.normalizer import normalize_languages
 from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
 from core.target_engine import TargetEngine
@@ -36,28 +36,33 @@ class BuildPipeline:
     def __init__(
         self,
         profile_manager: ProfileManager,
-        github_adapter: GitHubAdapter,
+        adapter_registry: AdapterRegistry,
         extractor: FactExtractor,
         generator: ContentGenerator,
         compiler: ResumeCompiler,
         target_engine: TargetEngine
     ):
         self.profile_manager = profile_manager
-        self.github = github_adapter
+        self.adapter_registry = adapter_registry
         self.extractor = extractor
         self.generator = generator
         self.compiler = compiler
         self.target_engine = target_engine
 
-    def sync_github_project(self, target_repo: str, mock_ai: bool = False) -> SyncResult:
+    def sync_project(self, source_type: str, identifier: str, mock_ai: bool = False) -> SyncResult:
         """
         INGEST -> EXTRACT -> NORMALIZE -> MERGE -> SAVE
         """
         try:
-            # 1. Ingest
-            source_result = self.github.ingest(identifier=target_repo)
+            # 1. Resolve Adapter
+            adapter = self.adapter_registry.get_adapter(source_type)
+            if not adapter:
+                return SyncResult(False, f"No adapter registered for source type '{source_type}'")
+
+            # 2. Ingest
+            source_result = adapter.ingest(identifier=identifier)
             if source_result.status != "success":
-                return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {target_repo}"))
+                return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {identifier}"))
                 
             # 2. Extract Facts
             extraction_result = self.extractor.extract(source_result, entity_id=source_result.source_id, mock_ai=mock_ai)
@@ -81,7 +86,7 @@ class BuildPipeline:
             # 5. Save Atomic
             self.profile_manager.save()
             
-            return SyncResult(True, f"Successfully synced {target_repo}")
+            return SyncResult(True, f"Successfully synced {identifier}")
             
         except Exception as e:
             return SyncResult(False, f"Sync failed: {e}")

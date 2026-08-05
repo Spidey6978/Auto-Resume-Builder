@@ -18,10 +18,12 @@ from core.cache import CacheManager
 from core.ai_gateway import AIGateway
 from core.compiler import ResumeCompiler
 from adapters.github_adapter import GitHubAdapter
+from adapters.registry import AdapterRegistry
 from core.profile_manager import ProfileManager
 from core.fact_extractor import FactExtractor
 from core.generator import ContentGenerator
 from core.pipeline import BuildPipeline
+from core.domain_loader import DomainLoader
 
 load_dotenv()
 
@@ -93,6 +95,10 @@ def main():
         sys.exit(1)
 
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
+    
+    adapter_registry = AdapterRegistry()
+    adapter_registry.register("github", github_adapter)
+
     ai_gateway = AIGateway(api_key=gemini_api_key)
     
     # 2. Initialize Domain Services
@@ -109,6 +115,11 @@ def main():
     from core.knowledge.store import KnowledgeStore
     knowledge_dir = os.path.join(base_dir, "data", "knowledge")
     knowledge_store = KnowledgeStore(knowledge_dir=knowledge_dir)
+
+    # Initialize DomainLoader
+    domains_dir = os.path.join(base_dir, "config", "domains")
+    domain_loader = DomainLoader(domains_dir=domains_dir)
+    print(f"🌍 Loaded {len(domain_loader.domains)} domains")
 
     # Initialize TargetResolver
     from core.target_resolver import JobDescriptionExtractor, TargetResolver
@@ -131,7 +142,7 @@ def main():
     # 3. Inject into Pipeline Orchestrator
     pipeline = BuildPipeline(
         profile_manager=profile_manager,
-        github_adapter=github_adapter,
+        adapter_registry=adapter_registry,
         extractor=extractor,
         generator=generator,
         compiler=compiler,
@@ -142,8 +153,15 @@ def main():
     should_build = args.build or not args.sync
 
     if args.sync:
-        print(f"🔄 Syncing GitHub repository: {args.sync}")
-        result = pipeline.sync_github_project(args.sync, mock_ai=args.mock_ai)
+        # In a real CLI, we might parse source_type:identifier (e.g. github:Spidey6978/TransitOS)
+        # For backwards compatibility with the current CLI, assume github if no prefix
+        identifier = args.sync
+        source_type = "github"
+        if ":" in identifier:
+            source_type, identifier = identifier.split(":", 1)
+            
+        print(f"🔄 Syncing {source_type} source: {identifier}")
+        result = pipeline.sync_project(source_type=source_type, identifier=identifier, mock_ai=args.mock_ai)
         if result.success:
             print(f"  [OK] {result.message}")
         else:

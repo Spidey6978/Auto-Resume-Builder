@@ -1,0 +1,16 @@
+id: engineering
+display_name: Software Engineering Mode
+suggested_sources:
+  - adapter: github
+    priority: primary
+    guidance: "Connect your main project repositories"
+  - adapter: linkedin_export  
+    priority: primary
+    guidance: "Export from LinkedIn Settings > Data Privacy"
+  - adapter: web_url
+    priority: optional
+    guidance: "Your portfolio or personal website"
+profile_entities:
+  primary: [experience, projects, education, skills]
+  optional: [awards, certifications]
+default_document_type: industry_resume

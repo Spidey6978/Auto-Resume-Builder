@@ -32,7 +32,7 @@ def test_pipeline_build_resume():
 
     pipeline = BuildPipeline(
         profile_manager=mock_profile_manager,
-        github_adapter=MagicMock(),
+        adapter_registry=MagicMock(),
         extractor=MagicMock(),
         generator=mock_generator,
         compiler=mock_compiler,
