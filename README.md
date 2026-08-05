@@ -2,9 +2,9 @@
 
 A target-aware resume generation engine that turns a single **Canonical Profile** into tailored, ATS-friendly resumes for specific roles and job descriptions.
 
-Instead of maintaining multiple resume copies, Auto Resume Builder stores your career history as structured facts, ranks the most relevant evidence for each target, generates grounded resume bullets, and compiles them into a polished LuaLaTeX PDF — automatically trimming lower-priority content when the document exceeds its page budget.
+Instead of maintaining multiple resume copies, Auto Resume Builder stores your career history as structured facts, ranks the most relevant evidence for each target, generates grounded resume bullets, and compiles them into a polished PDF (via Tectonic) — automatically trimming lower-priority content when the document exceeds its page budget.
 
-> **Status:** Core targeting, generation pipeline, and universal document ingestion are complete. Currently supporting GitHub and PDF/Document ingestion with intelligent differential syncing.
+> **Status:** Core targeting, generation pipeline, and universal document ingestion are complete. Supports GitHub (v2), PDF/Document, LinkedIn data exports, and CLI manual ingestion with intelligent differential syncing.
 
 ---
 
@@ -70,11 +70,10 @@ This keeps generated wording and targeting decisions from contaminating the cand
 
 ### Prerequisites
 
-- **Python 3.10+**: Ensure Python is installed and available in your PATH.
-- **LaTeX Distribution**: You must have a LaTeX engine installed that supports `lualatex`.
-  - **Windows**: [MiKTeX](https://miktex.org/)
-  - **Linux**: `sudo apt install texlive-full`
-  - **macOS**: [MacTeX](https://www.tug.org/mactex/)
+- **Python 3.13+**: Ensure Python is installed and available in your PATH.
+- **LaTeX Distribution**: You must have `tectonic` installed on your system (recommended), or `lualatex` as a fallback.
+  - **Tectonic**: Install via `cargo install tectonic` or follow [official docs](https://tectonic-typesetting.github.io/en-US/).
+  - **LuaLaTeX**: Install TeX Live (Linux) or MiKTeX (Windows).
 - **API Keys**:
   - **Google Gemini API Key**: Required for the generation engine.
   - **GitHub Token**: Optional but highly recommended to avoid API rate limits when fetching repositories.
@@ -132,21 +131,34 @@ Verifies your Python version, user data directories, API keys, and LaTeX compile
 
 Auto Resume Builder extracts structured facts from your existing data without destroying anything.
 
-**Import a GitHub project:**
+**Import a GitHub project (v2):**
 ```bash
 arb source add github Spidey6978/TransitOS
 ```
+*Note: GitHub adapter v2 automatically scans Git trees to locate project manifests (like `package.json` or `requirements.txt`), pulling down exact tech stacks.*
 
 **Import an existing PDF resume:**
 ```bash
 arb source add document path/to/resume.pdf
 ```
 
+**Import a LinkedIn data export:**
+```bash
+arb source add linkedin path/to/linkedin_data.zip
+```
+*Note: The LinkedIn adapter parses your raw export `.zip` to structurally extract positions, education, projects, and skills natively without AI parsing.*
+
+**Manually input facts:**
+```bash
+arb source add manual
+```
+*Prompts you interactively to add experiences, projects, awards, or education directly to your canonical profile.*
+
 **View all your synced sources:**
 ```bash
 arb source list
 ```
-*(The system uses intelligent differential syncing to avoid re-processing unmodified sources.)*
+*(The system uses intelligent deterministic SHA-256 syncing to avoid re-processing unmodified sources.)*
 
 ### 3. Build a targeted resume
 
@@ -219,8 +231,8 @@ The system follows a simple rule:
 | **Profile Storage** | YAML |
 | **Caching** | SQLite |
 | **Templating** | Jinja2 |
-| **Typesetting** | LuaLaTeX |
-| **Source Integration** | GitHub API |
+| **Typesetting** | Tectonic (or LuaLaTeX) |
+| **Source Integration** | GitHub API, Local Parsers |
 | **Testing** | Pytest |
 
 ---
@@ -229,17 +241,16 @@ The system follows a simple rule:
 
 Auto Resume Builder is rapidly evolving into a fully autonomous, agentic career intelligence platform that builds context-aware, ATS-optimized, hyper-targeted resumes dynamically. 
 
-The core ingestion and generation engines are functional and the architecture is stabilized. Our immediate roadmap focuses on unlocking more data sources and giving you precise manual control:
+The core ingestion and generation engines are functional, and the architecture is stabilized. With Phase 4 (Universal Data Ingestion) officially complete, you can now seamlessly collect your career history across GitHub, LinkedIn, PDFs, and manual entry.
+
+Our immediate roadmap focuses on unlocking entirely new candidate domains and giving you more control over the generation process:
 
 ```text
-✓ Phase 1-3: Core Infrastructure, Targeting, and Generation
-✓ Phase 4.2: Universal Document Ingestion (PDFs)
-✓ Phase 4.2.5: Source Registry & Differential Syncing
+✓ Phase 4: Universal Data Ingestion (GitHub v2, LinkedIn, Manual, Documents, Source Merging)
 
-→ Phase 4.3: Manual Sources (CLI prompts & YAML editing helpers for fine-grained control)
-→ Phase 4.4: LinkedIn Export Ingestion (ZIP, CSV, JSON)
-→ Phase 4.5: GitHub Adapter v2 (Manifest parsing, dependency analysis, and richer evidence)
-→ Phase 4.6: Non-engineering Sources (Academic ORCID integration, Portfolios)
+→ Phase 4.6: Non-engineering Domains (Academic CVs, Consulting, Medical)
+→ Phase 5: The "Interactive Grilling" Planner (An AI agent interviews you to align on design decisions)
+→ Phase 6: End-to-End Orchestration (Self-managing subagents for continuous background syncing)
 ```
 
 Larger ideas and deliberately deferred improvements live in [`BACKLOG.md`](./BACKLOG.md) so they don't turn into feature creep.
@@ -248,9 +259,7 @@ Larger ideas and deliberately deferred improvements live in [`BACKLOG.md`](./BAC
 
 ## ⚠️ Current Limitations
 
-GitHub is currently the primary automated source and repository understanding is still largely README-oriented. Project evidence is more mature than other career entity types, Gemini is the currently implemented AI provider, and the primary interface is the CLI.
-
-These are the next areas of active development rather than features the project claims to have already solved.
+The system currently defaults heavily toward SWE (Software Engineering) targets, and Gemini is the solely implemented AI provider. We are expanding to cross-domain integrations soon.
 
 ---
 

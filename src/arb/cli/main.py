@@ -86,7 +86,18 @@ def init_services(args):
     profile_manager = ProfileManager(str(canonical_path))
     
     templates_dir = get_bundled_data_dir() / "templates"
-    compiler = ResumeCompiler(templates_dir=str(templates_dir))
+    
+    # Auto-detect compiler
+    import shutil
+    from arb.core.compilers.engines import LuaLaTeXEngine, TectonicEngine
+    if shutil.which("tectonic"):
+        engine = TectonicEngine()
+    elif shutil.which("lualatex"):
+        engine = LuaLaTeXEngine()
+    else:
+        engine = TectonicEngine() # fallback to tectonic default
+        
+    compiler = ResumeCompiler(templates_dir=str(templates_dir), engine=engine)
     
     knowledge_dir = get_bundled_data_dir() / "data" / "knowledge"
     knowledge_store = KnowledgeStore(knowledge_dir=str(knowledge_dir))

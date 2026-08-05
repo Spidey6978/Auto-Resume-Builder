@@ -63,8 +63,6 @@ class AIGateway:
             return self._available_models
             
         try:
-            # We must use configure here for listing models, but it affects global state unfortunately.
-            # In google.generativeai, list_models requires configure.
             genai.configure(api_key=self.api_key)
             self._available_models = [
                 m.name.replace("models/", "")
@@ -100,15 +98,14 @@ class AIGateway:
         if not models_to_try:
             models_to_try = ["gemini-pro"]
 
-        # For generation, we pass api_key directly in request_options to prevent global collision issues.
-        request_options = {"api_key": self.api_key}
+        genai.configure(api_key=self.api_key)
 
         for model_name in models_to_try:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt, request_options=request_options)
+                    response = model.generate_content(prompt)
                     return response.text
                 except Exception as e:
                     error_type, retry_after_sec = classify_exception(e)

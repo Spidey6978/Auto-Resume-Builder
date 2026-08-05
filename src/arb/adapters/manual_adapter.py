@@ -87,17 +87,3 @@ class ManualAdapter(BaseAdapter):
             metadata={"entity_type": entity_type, "name": "Manual CLI Entry"}
         )
 
-    def _prompt_experience(self) -> Dict[str, Any]:
-        org = input("Organization/Company: ").strip()
-        title = input("Job Title: ").strip()
-        location = input("Location: ").strip()
-        start_date = input("Start Date: ").strip()
-        end_date = input("End Date (leave blank if current): ").strip()
-        return {
-            "organization": org,
-            "title": title,
-            "location": location,
-            "start_date": start_date,
-            "end_date": end_date or None,
-        }
-
