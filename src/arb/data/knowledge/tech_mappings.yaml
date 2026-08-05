@@ -1,0 +1,73 @@
+# Framework Identity
+express:
+  canonical: Express
+fastapi:
+  canonical: FastAPI
+django:
+  canonical: Django
+flask:
+  canonical: Flask
+react:
+  canonical: React
+react-dom:
+  canonical: React
+vue:
+  canonical: Vue.js
+angular:
+  canonical: Angular
+next:
+  canonical: Next.js
+gin:
+  canonical: Gin
+
+# Technology / DB Identity
+psycopg2:
+  canonical: PostgreSQL
+mysqlclient:
+  canonical: MySQL
+mongoose:
+  canonical: MongoDB
+pymongo:
+  canonical: MongoDB
+boto3:
+  canonical: AWS
+aws-sdk:
+  canonical: AWS
+firebase:
+  canonical: Firebase
+firebase-admin:
+  canonical: Firebase
+redis:
+  canonical: Redis
+celery:
+  canonical: Celery
+
+# Ignore list (Development Tooling)
+eslint:
+  ignore: true
+prettier:
+  ignore: true
+black:
+  ignore: true
+ruff:
+  ignore: true
+pytest:
+  ignore: true
+jest:
+  ignore: true
+mypy:
+  ignore: true
+flake8:
+  ignore: true
+isort:
+  ignore: true
+nodemon:
+  ignore: true
+webpack:
+  ignore: true
+babel:
+  ignore: true
+ts-node:
+  ignore: true
+typescript:
+  ignore: true # (Often treated as language rather than framework, ignoring here so Language stats handles it)

@@ -57,7 +57,48 @@ class EvidenceExtractor:
         elif kind == "skills_block":
             result.skills = self._extract_skills(evidence, mock_ai)
             
+        # Deterministic extractions (from structured adapters like Manual or LinkedIn)
+        elif kind == "experience":
+            result.experience = self._extract_deterministic_experience(evidence)
+        elif kind == "projects":
+            result.projects = self._extract_deterministic_project(evidence)
+        elif kind == "education":
+            result.education = self._extract_deterministic_education(evidence)
+        elif kind == "awards":
+            result.awards = self._extract_deterministic_award(evidence)
+        elif kind == "skills":
+            # Just extract it as a dict mapping categories to lists of strings
+            result.skills = evidence.content
+            
         return result
+        
+    def _extract_deterministic_experience(self, evidence: EvidenceItem) -> List[ExperienceItem]:
+        data = evidence.content.copy()
+        data["id"] = data.get("id", f"{data.get('organization', '')}_{data.get('title', '')}".replace(" ", "_").lower())
+        if not data["id"]:
+            data["id"] = evidence.id
+        return [ExperienceItem.from_dict(data)]
+
+    def _extract_deterministic_project(self, evidence: EvidenceItem) -> List[Project]:
+        data = evidence.content.copy()
+        data["id"] = data.get("id", data.get("name", "").replace(" ", "_").lower())
+        if not data["id"]:
+            data["id"] = evidence.id
+        return [Project.from_dict(data)]
+
+    def _extract_deterministic_education(self, evidence: EvidenceItem) -> List[EducationItem]:
+        data = evidence.content.copy()
+        data["id"] = data.get("id", f"{data.get('institution', '')}_{data.get('degree', '')}".replace(" ", "_").lower())
+        if not data["id"]:
+            data["id"] = evidence.id
+        return [EducationItem.from_dict(data)]
+
+    def _extract_deterministic_award(self, evidence: EvidenceItem) -> List[AwardItem]:
+        data = evidence.content.copy()
+        data["id"] = data.get("id", data.get("title", "").replace(" ", "_").lower())
+        if not data["id"]:
+            data["id"] = evidence.id
+        return [AwardItem.from_dict(data)]
         
     def _extract_experience(self, evidence: EvidenceItem, mock_ai: bool) -> List[ExperienceItem]:
         prompt = f"""

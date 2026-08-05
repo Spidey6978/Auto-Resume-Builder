@@ -14,9 +14,12 @@ from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExp
 from arb.core.target_engine import TargetEngine
 from arb.models.domain import TargetContext
 from arb.core.domain_loader import DomainLoader
+import datetime
 from arb.core.document_segmenter import DocumentSegmenter
 from arb.core.evidence_extractor import EvidenceExtractor
 from arb.core.profile_merger import ProfileMerger
+from arb.core.source_manager import SourceManager
+from arb.models.domain import SourceRecord
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,8 @@ class BuildPipeline:
         target_engine: TargetEngine,
         domain_loader: DomainLoader = None,
         document_segmenter: DocumentSegmenter = None,
-        evidence_extractor: EvidenceExtractor = None
+        evidence_extractor: EvidenceExtractor = None,
+        source_manager: SourceManager = None
     ):
         self.profile_manager = profile_manager
         self.adapter_registry = adapter_registry
@@ -58,6 +62,7 @@ class BuildPipeline:
         self.domain_loader = domain_loader
         self.document_segmenter = document_segmenter
         self.evidence_extractor = evidence_extractor
+        self.source_manager = source_manager
 
     def sync_source(self, source_type: str, identifier: str, mock_ai: bool = False) -> SyncResult:
         """
@@ -70,7 +75,44 @@ class BuildPipeline:
 
             source_result = adapter.ingest(identifier=identifier)
             if source_result.status != "success":
+                if self.source_manager:
+                    record = SourceRecord(
+                        id=source_result.source_id or f"{source_type}:{identifier}",
+                        type=source_type,
+                        identifier=identifier,
+                        display_name=identifier,
+                        added_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        last_synced=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        status="failed",
+                        adapter_version=source_result.metadata.get("adapter_version"),
+                        metadata={"error": source_result.metadata.get("error")}
+                    )
+                    self.source_manager.upsert_source(record)
+                    self.source_manager.save()
                 return SyncResult(False, source_result.metadata.get("error", f"Failed to ingest {identifier}"))
+                
+            # Check skip logic via SourceManager
+            if self.source_manager:
+                existing = self.source_manager.get_source(source_result.source_id)
+                should_skip = False
+                
+                if existing and existing.status == "success":
+                    if source_type == "document":
+                        should_skip = True # ID is hash
+                    elif source_type == "linkedin":
+                        if source_result.source_id == existing.id:
+                            should_skip = True
+                    elif source_type == "github":
+                        new_etag = source_result.metadata.get("etag")
+                        old_etag = existing.metadata.get("etag")
+                        if new_etag and new_etag == old_etag:
+                            should_skip = True
+                            
+                if should_skip:
+                    existing.last_synced = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    self.source_manager.upsert_source(existing)
+                    self.source_manager.save()
+                    return SyncResult(True, f"Skipped {identifier}. No changes detected.")
                 
             merger = ProfileMerger(self.profile_manager.profile)
                 
@@ -108,6 +150,32 @@ class BuildPipeline:
 
             # Save Atomic
             self.profile_manager.save()
+            
+            # Record Success
+            if self.source_manager:
+                existing = self.source_manager.get_source(source_result.source_id)
+                added_at = existing.added_at if existing else datetime.datetime.now(datetime.timezone.utc).isoformat()
+                
+                display_name = identifier
+                if source_type == "github":
+                    display_name = source_result.metadata.get("name", identifier)
+                elif source_type == "document":
+                    display_name = os.path.basename(identifier)
+                    
+                record = SourceRecord(
+                    id=source_result.source_id,
+                    type=source_type,
+                    identifier=identifier,
+                    display_name=display_name,
+                    added_at=added_at,
+                    last_synced=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    status="success",
+                    adapter_version=source_result.metadata.get("adapter_version"),
+                    last_ingested_hash=source_result.metadata.get("etag") or source_result.metadata.get("hash"),
+                    metadata=source_result.metadata
+                )
+                self.source_manager.upsert_source(record)
+                self.source_manager.save()
             
             return SyncResult(True, f"Successfully synced {identifier}")
             

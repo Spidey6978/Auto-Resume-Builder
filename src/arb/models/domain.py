@@ -236,6 +236,57 @@ class SourceResult:
 
 
 @dataclass
+class SourceRecord:
+    id: str                 # e.g., 'github:Spidey6978/TransitOS' or 'document:<sha256>'
+    type: str               # e.g., 'github', 'document', 'linkedin'
+    identifier: str         # The string used to ingest (path or repo name)
+    display_name: str       # Human-readable name (e.g., 'TransitOS', 'resume.pdf')
+    added_at: str           # ISO timestamp
+    last_synced: str        # ISO timestamp
+    status: str             # 'success', 'failed'
+    adapter_version: Optional[str] = None
+    last_ingested_hash: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        return {k: v for k, v in d.items() if v is not None}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SourceRecord":
+        return cls(
+            id=data["id"],
+            type=data["type"],
+            identifier=data["identifier"],
+            display_name=data["display_name"],
+            added_at=data["added_at"],
+            last_synced=data["last_synced"],
+            status=data["status"],
+            adapter_version=data.get("adapter_version"),
+            last_ingested_hash=data.get("last_ingested_hash"),
+            metadata=data.get("metadata", {})
+        )
+
+@dataclass
+class SourceRegistryModel:
+    schema_version: str = "1.0"
+    sources: List[SourceRecord] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "sources": [s.to_dict() for s in self.sources]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SourceRegistryModel":
+        return cls(
+            schema_version=data.get("schema_version", "1.0"),
+            sources=[SourceRecord.from_dict(s) for s in data.get("sources", [])]
+        )
+
+
+@dataclass
 class TargetRule:
     exclude: List[str] = field(default_factory=list)
     include_only: List[str] = field(default_factory=list)

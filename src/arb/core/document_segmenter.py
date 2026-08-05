@@ -1,9 +1,13 @@
 import json
+import hashlib
+import yaml
+from pathlib import Path
 from typing import List, Dict, Optional
 
 from arb.models.domain import EvidenceItem
 from arb.core.ai_gateway import AIGateway
 from arb.core.cache import CacheManager
+from arb.core.paths import get_bundled_data_dir
 
 class DocumentSegmenter:
     """
@@ -11,18 +15,19 @@ class DocumentSegmenter:
     Uses deterministic heuristics based on common resume headings. 
     Falls back to LLM-based segmentation if heuristics yield low confidence.
     """
-    
-    KNOWN_SECTIONS = {
-        "experience": ["EXPERIENCE", "WORK EXPERIENCE", "PROFESSIONAL EXPERIENCE", "EMPLOYMENT", "WORK HISTORY", "EMPLOYMENT HISTORY"],
-        "education": ["EDUCATION", "ACADEMIC BACKGROUND", "ACADEMICS"],
-        "projects": ["PROJECTS", "PERSONAL PROJECTS", "ACADEMIC PROJECTS", "SOFTWARE PROJECTS", "TECHNICAL PROJECTS"],
-        "skills": ["SKILLS", "TECHNICAL SKILLS", "TECHNOLOGIES", "CORE COMPETENCIES"],
-        "awards": ["AWARDS", "HONORS", "CERTIFICATIONS", "ACHIEVEMENTS", "PUBLICATIONS"]
-    }
 
     def __init__(self, ai_gateway: AIGateway, cache_manager: Optional[CacheManager] = None):
         self.ai_gateway = ai_gateway
         self.cache_manager = cache_manager
+        
+        self.known_sections = {}
+        headings_path = get_bundled_data_dir() / "data" / "knowledge" / "known_headings.yaml"
+        if headings_path.exists():
+            try:
+                with open(headings_path, "r", encoding="utf-8") as f:
+                    self.known_sections = yaml.safe_load(f) or {}
+            except Exception:
+                pass
 
     def segment(self, evidence_items: List[EvidenceItem]) -> List[EvidenceItem]:
         """
@@ -75,15 +80,14 @@ class DocumentSegmenter:
                 current_content.append(line)
                 continue
                 
-            stripped_upper = stripped.upper()
+            # Normalize whitespace for comparison
+            normalized = " ".join(stripped.split()).upper()
             
-            # Simple heuristic: Header lines are usually short (under 40 chars)
             matched_type = None
-            if len(stripped_upper) < 40:
-                for sec_type, aliases in self.KNOWN_SECTIONS.items():
-                    if stripped_upper in aliases:
-                        matched_type = sec_type
-                        break
+            for sec_type, aliases in self.known_sections.items():
+                if normalized in aliases:
+                    matched_type = sec_type
+                    break
                         
             if matched_type:
                 if current_content:
@@ -107,7 +111,8 @@ class DocumentSegmenter:
             f"RESUME TEXT:\n{text}\n"
         )
         
-        cache_key = f"segment_{hash(text)}"
+        hash_val = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        cache_key = f"segment_{hash_val}"
         if self.cache_manager:
             cached = self.cache_manager.get("document_segmentation", cache_key)
             if cached:

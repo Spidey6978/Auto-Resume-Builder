@@ -44,6 +44,7 @@ def init_services(args):
     from arb.adapters.document_adapter import DocumentAdapter
     from arb.core.document_segmenter import DocumentSegmenter
     from arb.core.evidence_extractor import EvidenceExtractor
+    from arb.core.source_manager import SourceManager
 
     cache_mgr = CacheManager()
     
@@ -61,9 +62,17 @@ def init_services(args):
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
     doc_adapter = DocumentAdapter()
     
+    from arb.adapters.manual_adapter import ManualAdapter
+    manual_adapter = ManualAdapter()
+    
+    from arb.adapters.linkedin_adapter import LinkedInAdapter
+    linkedin_adapter = LinkedInAdapter()
+    
     adapter_registry = AdapterRegistry()
     adapter_registry.register("github", github_adapter)
     adapter_registry.register("document", doc_adapter)
+    adapter_registry.register("manual", manual_adapter)
+    adapter_registry.register("linkedin", linkedin_adapter)
 
     extractor = FactExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     generator = ContentGenerator(ai_gateway=ai_gateway, cache_manager=cache_mgr)
@@ -103,6 +112,7 @@ def init_services(args):
 
     doc_segmenter = DocumentSegmenter(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     evidence_extractor = EvidenceExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr, fact_extractor=extractor)
+    source_manager = SourceManager(data_dir=get_user_data_dir())
 
     pipeline = BuildPipeline(
         profile_manager=profile_manager,
@@ -113,7 +123,8 @@ def init_services(args):
         target_engine=target_engine,
         domain_loader=domain_loader,
         document_segmenter=doc_segmenter,
-        evidence_extractor=evidence_extractor
+        evidence_extractor=evidence_extractor,
+        source_manager=source_manager
     )
     
     return pipeline, target_loader, cache_mgr
@@ -263,9 +274,15 @@ def handle_build(args):
 
 def handle_source(args):
     if args.source_cmd == "add":
-        if args.type in ["github", "document"]:
+        if args.type in ["github", "document", "manual", "linkedin"]:
+            if args.type == "manual" and args.entity:
+                args.identifier = args.entity
+            elif args.type == "manual":
+                args.identifier = input("Entity type to add (experience, project, education, award): ").strip()
+                
             pipeline, _, _ = init_services(args)
-            print(f"🔄 Syncing {args.type} source: {args.identifier}")
+            if args.type != "manual":
+                print(f"🔄 Syncing {args.type} source: {args.identifier}")
             result = pipeline.sync_source(source_type=args.type, identifier=args.identifier, mock_ai=args.mock_ai)
             if result.success:
                 print(f"  [OK] {result.message}")
@@ -273,6 +290,31 @@ def handle_source(args):
                 print(f"  [!] {result.message}")
         else:
             print(f"Source type '{args.type}' not fully supported yet.")
+    elif args.source_cmd == "list":
+        from arb.core.source_manager import SourceManager
+        import datetime
+        
+        manager = SourceManager(data_dir=get_user_data_dir())
+        sources = manager.list_sources()
+        if not sources:
+            print("No sources registered.")
+            return
+            
+        grouped = {}
+        for s in sources:
+            grouped.setdefault(s.type, []).append(s)
+            
+        for stype, s_list in grouped.items():
+            print(f"\n{stype.capitalize()}")
+            print("-" * 15)
+            for s in s_list:
+                print(s.display_name)
+                try:
+                    dt = datetime.datetime.fromisoformat(s.last_synced.replace('Z', '+00:00'))
+                    date_str = dt.strftime("%d %b %Y %H:%M")
+                except:
+                    date_str = s.last_synced
+                print(f"Last synced: {date_str} [{s.status.upper()}]\n")
 
 
 def handle_profile(args):
@@ -343,9 +385,12 @@ def main():
     source_sub = source_parser.add_subparsers(dest="source_cmd", required=True)
     
     add_src = source_sub.add_parser("add", help="Add a new source")
-    add_src.add_argument("type", choices=["github", "document"], help="Type of source")
-    add_src.add_argument("identifier", help="Identifier (e.g. Spidey6978/TransitOS or path/to/resume.pdf)")
+    add_src.add_argument("type", choices=["github", "document", "manual", "linkedin"], help="Type of source")
+    add_src.add_argument("identifier", nargs="?", help="Identifier (e.g. Spidey6978/TransitOS, path/to/resume.pdf, path/to/linkedin.zip)")
+    add_src.add_argument("--entity", help="Entity type for manual entry (experience, project, education, award)")
     add_src.add_argument("--mock-ai", action="store_true")
+    
+    source_sub.add_parser("list", help="List all registered sources and sync status")
 
     # arb profile
     profile_parser = subparsers.add_parser("profile", help="Manage canonical profile")

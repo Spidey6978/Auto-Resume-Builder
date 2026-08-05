@@ -4,7 +4,7 @@ A target-aware resume generation engine that turns a single **Canonical Profile*
 
 Instead of maintaining multiple resume copies, Auto Resume Builder stores your career history as structured facts, ranks the most relevant evidence for each target, generates grounded resume bullets, and compiles them into a polished LuaLaTeX PDF — automatically trimming lower-priority content when the document exceeds its page budget.
 
-> **Status:** Core targeting and generation pipeline complete. Currently supports GitHub ingestion, with multi-source ingestion planned next.
+> **Status:** Core targeting, generation pipeline, and universal document ingestion are complete. Currently supporting GitHub and PDF/Document ingestion with intelligent differential syncing.
 
 ---
 
@@ -107,49 +107,60 @@ This keeps generated wording and targeting decisions from contaminating the cand
    ```
 
 4. **Environment Configuration**
-   Create a `.env` file in the root of the project:
+   The application now handles its own initialization and setup. Simply run the init command (you can alias `python -m src.arb.cli.main` to `arb`):
 
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   GITHUB_TOKEN=your_github_token_here
+   ```bash
+   python -m src.arb.cli.main init
    ```
+   
+   This will guide you through setting up your user data directory, migrating old profiles, and configuring your API keys.
 
 ---
 
 ## 💻 Usage
 
-### Import a GitHub project
+Auto Resume Builder is driven by a powerful CLI. (We recommend aliasing `python -m src.arb.cli.main` to `arb` for convenience).
+
+### 1. Check your setup
 
 ```bash
-python src/cli/main.py --sync Spidey6978/TransitOS
+arb doctor
 ```
+Verifies your Python version, user data directories, API keys, and LaTeX compilers.
 
-The repository is analyzed into structured facts and merged into:
+### 2. Ingest your career history (Data Sources)
 
-```text
-data/canonical_profile.yaml
-```
+Auto Resume Builder extracts structured facts from your existing data without destroying anything.
 
-### Build for a target
-
+**Import a GitHub project:**
 ```bash
-python src/cli/main.py --build --target backend
+arb source add github Spidey6978/TransitOS
 ```
 
-### Build against a job description
-
+**Import an existing PDF resume:**
 ```bash
-python src/cli/main.py --build --job path/to/job_description.txt
+arb source add document path/to/resume.pdf
 ```
 
-### Test without AI calls
-
+**View all your synced sources:**
 ```bash
-python src/cli/main.py --build --target backend --mock-ai
+arb source list
+```
+*(The system uses intelligent differential syncing to avoid re-processing unmodified sources.)*
+
+### 3. Build a targeted resume
+
+**Build for a predefined target:**
+```bash
+arb build --target backend
+```
+
+**Build against a raw job description:**
+```bash
+arb build --job path/to/job_description.txt
 ```
 
 Generated files are isolated per build:
-
 ```text
 build/<uuid>/
 ├── resume.tex
@@ -157,10 +168,18 @@ build/<uuid>/
 └── resume.pdf
 ```
 
-### Clear cached generations
+### 4. Other useful commands
 
 ```bash
-python src/cli/main.py --clear-cache
+# View or edit your canonical profile
+arb profile show
+arb profile edit
+
+# Test generation without hitting the AI API
+arb build --target backend --mock-ai
+
+# Clear the local SQLite cache
+arb cache clear
 ```
 
 ---
@@ -206,21 +225,21 @@ The system follows a simple rule:
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ What Comes Next
 
-The core resume engine is functional. The next major focus is making the Canonical Profile easier and richer to populate.
+Auto Resume Builder is rapidly evolving into a fully autonomous, agentic career intelligence platform that builds context-aware, ATS-optimized, hyper-targeted resumes dynamically. 
+
+The core ingestion and generation engines are functional and the architecture is stabilized. Our immediate roadmap focuses on unlocking more data sources and giving you precise manual control:
 
 ```text
-✓ Infrastructure & caching
-✓ Canonical profile + fact extraction
-✓ Targeting + fact ranking
-✓ Resume planning + content budgeting
+✓ Phase 1-3: Core Infrastructure, Targeting, and Generation
+✓ Phase 4.2: Universal Document Ingestion (PDFs)
+✓ Phase 4.2.5: Source Registry & Differential Syncing
 
-→ Multi-source ingestion
-→ Resume / CV import
-→ Richer GitHub evidence extraction
-→ Domain-aware onboarding
-→ Web UI
+→ Phase 4.3: Manual Sources (CLI prompts & YAML editing helpers for fine-grained control)
+→ Phase 4.4: LinkedIn Export Ingestion (ZIP, CSV, JSON)
+→ Phase 4.5: GitHub Adapter v2 (Manifest parsing, dependency analysis, and richer evidence)
+→ Phase 4.6: Non-engineering Sources (Academic ORCID integration, Portfolios)
 ```
 
 Larger ideas and deliberately deferred improvements live in [`BACKLOG.md`](./BACKLOG.md) so they don't turn into feature creep.

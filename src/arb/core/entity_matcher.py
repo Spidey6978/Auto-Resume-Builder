@@ -21,6 +21,18 @@ class EntityMatcher:
         return difflib.SequenceMatcher(None, s1, s2).ratio()
         
     @staticmethod
+    def _date_similarity(d1_start: Optional[str], d1_end: Optional[str], d2_start: Optional[str], d2_end: Optional[str]) -> float:
+        start_sim = 1.0
+        if d1_start and d2_start:
+            start_sim = 1.0 if d1_start.strip().lower() == d2_start.strip().lower() else 0.0
+            
+        end_sim = 1.0
+        if d1_end and d2_end:
+            end_sim = 1.0 if d1_end.strip().lower() == d2_end.strip().lower() else 0.0
+            
+        return (start_sim + end_sim) / 2.0
+        
+    @staticmethod
     def match_experience(incoming, canonical_list) -> Tuple[str, Optional[Any]]:
         best_score = 0.0
         best_match = None
@@ -28,9 +40,9 @@ class EntityMatcher:
         for canonical in canonical_list:
             org_sim = EntityMatcher._similarity(incoming.organization, canonical.organization)
             title_sim = EntityMatcher._similarity(incoming.title, canonical.title)
+            date_sim = EntityMatcher._date_similarity(incoming.start_date, incoming.end_date, canonical.start_date, canonical.end_date)
             
-            # Weighted score: organization is slightly more important for identity
-            score = (org_sim * 0.6) + (title_sim * 0.4)
+            score = (org_sim * 0.5) + (title_sim * 0.3) + (date_sim * 0.2)
             if score > best_score:
                 best_score = score
                 best_match = canonical
@@ -50,8 +62,9 @@ class EntityMatcher:
         for canonical in canonical_list:
             inst_sim = EntityMatcher._similarity(incoming.institution, canonical.institution)
             deg_sim = EntityMatcher._similarity(incoming.degree, canonical.degree)
+            date_sim = EntityMatcher._date_similarity(incoming.start_date, incoming.end_date, canonical.start_date, canonical.end_date)
             
-            score = (inst_sim * 0.6) + (deg_sim * 0.4)
+            score = (inst_sim * 0.5) + (deg_sim * 0.3) + (date_sim * 0.2)
             if score > best_score:
                 best_score = score
                 best_match = canonical
