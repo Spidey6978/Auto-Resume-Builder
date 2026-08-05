@@ -1,11 +1,11 @@
 import json
 import logging
 from typing import Optional, List
-from models.domain import TargetContext, TargetRule
-from core.ai_gateway import AIGateway
-from core.knowledge.store import KnowledgeStore
+from arb.models.domain import TargetContext, TargetRule
+from arb.core.ai_gateway import AIGateway
+from arb.core.knowledge.store import KnowledgeStore
 
-from core.domain_loader import DomainLoader
+from arb.core.domain_loader import DomainLoader
 
 logger = logging.getLogger(__name__)
 

@@ -4,16 +4,16 @@ import logging
 from typing import Optional
 from dataclasses import dataclass
 
-from core.profile_manager import ProfileManager
-from core.fact_extractor import FactExtractor
-from core.generator import ContentGenerator
-from core.compiler import ResumeCompiler
-from adapters.registry import AdapterRegistry
-from core.normalizer import normalize_languages
-from models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
-from core.target_engine import TargetEngine
-from models.domain import TargetContext
-from core.domain_loader import DomainLoader
+from arb.core.profile_manager import ProfileManager
+from arb.core.fact_extractor import FactExtractor
+from arb.core.generator import ContentGenerator
+from arb.core.compiler import ResumeCompiler
+from arb.adapters.registry import AdapterRegistry
+from arb.core.normalizer import normalize_languages
+from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
+from arb.core.target_engine import TargetEngine
+from arb.models.domain import TargetContext
+from arb.core.domain_loader import DomainLoader
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
-from core.target_resolver import JobDescriptionExtractor, TargetResolver
-from models.domain import TargetContext, TargetRule
+from arb.core.target_resolver import JobDescriptionExtractor, TargetResolver
+from arb.models.domain import TargetContext, TargetRule
 
 def test_job_description_extractor_success():
     mock_ai = MagicMock()

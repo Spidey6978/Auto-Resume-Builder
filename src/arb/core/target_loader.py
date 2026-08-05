@@ -1,8 +1,8 @@
 import os
 import yaml
 from typing import Optional
-from models.domain import TargetContext, TargetRule
-from core.target_resolver import TargetResolver
+from arb.models.domain import TargetContext, TargetRule
+from arb.core.target_resolver import TargetResolver
 
 class TargetLoader:
     def __init__(self, targets_dir: str, target_resolver: TargetResolver):

@@ -2,10 +2,10 @@ import os
 import tempfile
 import pytest
 
-from core.normalizer import normalize_languages
-from core.profile_manager import ProfileManager
-from core.fact_extractor import ExtractionResult, ExtractionStatus
-from models.domain import Fact, Project, CanonicalProfile
+from arb.core.normalizer import normalize_languages
+from arb.core.profile_manager import ProfileManager
+from arb.core.fact_extractor import ExtractionResult, ExtractionStatus
+from arb.models.domain import Fact, Project, CanonicalProfile
 
 
 def test_normalize_languages_proportional():

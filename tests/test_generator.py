@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
-from core.generator import ContentGenerator, GenerationStatus
-from models.domain import CanonicalProfile, Project, Fact, TargetContext
-from models.plan import PlannedProject, PlannedFact
+from arb.core.generator import ContentGenerator, GenerationStatus
+from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext
+from arb.models.plan import PlannedProject, PlannedFact
 
 def test_generator_insufficient_data():
     generator = ContentGenerator(ai_gateway=MagicMock(), cache_manager=MagicMock())

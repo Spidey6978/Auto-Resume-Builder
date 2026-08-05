@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
-from models.domain import PersonalInfo, EducationItem
+from arb.models.domain import PersonalInfo, EducationItem
 
 @dataclass
 class RenderedBullet:

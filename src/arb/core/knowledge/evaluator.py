@@ -1,12 +1,12 @@
 import logging
 from typing import Dict, Any, List
-from models.domain import CanonicalProfile, TargetContext, TargetRule
-from core.knowledge.models import (
+from arb.models.domain import CanonicalProfile, TargetContext, TargetRule
+from arb.core.knowledge.models import (
     KnowledgeComponent, Priority, RecommendationCondition as Condition,
     ConditionalPolicy
 )
-from core.knowledge.store import KnowledgeStore
-from models.plan import ResolvedPolicies
+from arb.core.knowledge.store import KnowledgeStore
+from arb.models.plan import ResolvedPolicies
 
 logger = logging.getLogger(__name__)
 

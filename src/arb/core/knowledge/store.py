@@ -2,7 +2,7 @@ import os
 import yaml
 from typing import Dict, Optional
 from pathlib import Path
-from core.knowledge.models import (
+from arb.core.knowledge.models import (
     KnowledgeComponent
 )
 

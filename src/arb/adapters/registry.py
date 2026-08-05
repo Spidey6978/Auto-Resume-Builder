@@ -1,5 +1,5 @@
 from typing import Dict, Type, Optional
-from adapters.base import BaseAdapter
+from arb.adapters.base import BaseAdapter
 
 class AdapterRegistry:
     """

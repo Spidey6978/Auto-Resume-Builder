@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Optional
 import logging
-from models.config import DomainConfig
+from arb.models.config import DomainConfig
 
 logger = logging.getLogger(__name__)
 

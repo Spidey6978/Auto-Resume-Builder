@@ -4,10 +4,10 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
 
-from models.domain import CanonicalProfile, Project, Fact, TargetContext
-from models.plan import ResumePlan, PlannedProject
-from core.ai_gateway import AIGateway
-from core.cache import CacheManager
+from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext
+from arb.models.plan import ResumePlan, PlannedProject
+from arb.core.ai_gateway import AIGateway
+from arb.core.cache import CacheManager
 
 
 class GenerationStatus(str, Enum):
@@ -17,7 +17,7 @@ class GenerationStatus(str, Enum):
     AI_ERROR = "ai_error"
 
 
-from models.presentation import RenderedBullet
+from arb.models.presentation import RenderedBullet
 
 @dataclass
 class GenerationResult:

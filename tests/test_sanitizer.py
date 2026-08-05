@@ -1,5 +1,5 @@
 import pytest
-from core.sanitizer import escape_latex, sanitize_data
+from arb.core.sanitizer import escape_latex, sanitize_data
 
 
 def test_escape_latex_special_characters():

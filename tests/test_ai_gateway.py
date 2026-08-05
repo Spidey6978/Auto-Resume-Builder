@@ -3,8 +3,8 @@ import tempfile
 import gc
 import pytest
 from unittest.mock import patch, MagicMock
-from core.ai_gateway import AIGateway, classify_exception
-from core.cache import CacheManager
+from arb.core.ai_gateway import AIGateway, classify_exception
+from arb.core.cache import CacheManager
 
 
 @pytest.fixture

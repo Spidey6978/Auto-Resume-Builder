@@ -1,10 +1,10 @@
 import pytest
 import yaml
 from pathlib import Path
-from core.knowledge.models import (
+from arb.core.knowledge.models import (
     KnowledgeComponent, KnowledgeComponentType, PolicyStrength
 )
-from core.knowledge.store import KnowledgeStore
+from arb.core.knowledge.store import KnowledgeStore
 
 @pytest.fixture
 def temp_knowledge_dir(tmp_path):

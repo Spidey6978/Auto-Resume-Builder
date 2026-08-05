@@ -1,9 +1,9 @@
 import json
 import pytest
 from unittest.mock import MagicMock
-from models.domain import SourceResult, SourceStatus, Fact, EvidenceItem
-from core.ai_gateway import AIGateway
-from core.fact_extractor import FactExtractor, ExtractionStatus
+from arb.models.domain import SourceResult, SourceStatus, Fact, EvidenceItem
+from arb.core.ai_gateway import AIGateway
+from arb.core.fact_extractor import FactExtractor, ExtractionStatus
 
 
 @pytest.fixture

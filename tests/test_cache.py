@@ -2,7 +2,7 @@ import os
 import tempfile
 import gc
 import pytest
-from core.cache import CacheManager
+from arb.core.cache import CacheManager
 
 
 @pytest.fixture

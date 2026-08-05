@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
-from core.fact_ranker import FactRanker, ScoredFact
-from models.domain import Fact, TargetContext, Project
-from models.plan import ResolvedPolicies
+from arb.core.fact_ranker import FactRanker, ScoredFact
+from arb.models.domain import Fact, TargetContext, Project
+from arb.models.plan import ResolvedPolicies
 
 def test_deterministic_scoring():
     ranker = FactRanker(ai_gateway=MagicMock(), cache_manager=MagicMock())

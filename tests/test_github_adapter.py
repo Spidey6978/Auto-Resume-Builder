@@ -3,8 +3,8 @@ import tempfile
 import gc
 import pytest
 from unittest.mock import patch, MagicMock
-from adapters.github_adapter import GitHubAdapter
-from core.cache import CacheManager
+from arb.adapters.github_adapter import GitHubAdapter
+from arb.core.cache import CacheManager
 
 
 @pytest.fixture

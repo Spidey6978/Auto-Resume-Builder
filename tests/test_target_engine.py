@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
-from core.target_engine import TargetEngine
-from models.domain import CanonicalProfile, Project, Fact, TargetContext, TargetRule
+from arb.core.target_engine import TargetEngine
+from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext, TargetRule
 
 def test_target_engine_filter_exclude():
     engine = TargetEngine(ai_gateway=MagicMock(), cache_manager=MagicMock())

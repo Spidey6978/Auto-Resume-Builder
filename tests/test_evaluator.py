@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
-from core.knowledge.evaluator import CandidateState, PolicyEvaluator
-from models.domain import CanonicalProfile, TargetContext, ExperienceItem, AwardItem, Project
-from core.knowledge.models import (
+from arb.core.knowledge.evaluator import CandidateState, PolicyEvaluator
+from arb.models.domain import CanonicalProfile, TargetContext, ExperienceItem, AwardItem, Project
+from arb.core.knowledge.models import (
     KnowledgeComponent, ConditionalPolicy, RecommendationCondition, Priority
 )
 

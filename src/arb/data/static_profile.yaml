@@ -1,0 +1,49 @@
+github_username: "Spidey6978"
+
+showcase_repos:
+  - "TransitOS"
+  - "AgriNext"
+  - "null-geodesic-raytracer"
+  - "Auto-Resume-Builder"
+
+name: "Veer Gopani"
+phone: "+91 9372771613"
+email: "veergopani70@gmail.com"
+github: "https://github.com/Spidey6978"
+linkedin: "https://linkedin.com/in/veer-gopani"
+location: "Mumbai, India"
+
+summary: "Information Technology student and hackathon winner focused on backend systems, distributed computing, and computational software. Experienced building offline-first applications, distributed processing pipelines, and high-performance physics simulations."
+
+education:
+  - school: "St. Francis Institute of Technology (SFIT)"
+    location: "Mumbai, India"
+    degree: "B.E. in Information Technology"
+    dates: "2024-2028"
+
+awards:
+  - title: "1st Place, Blockchain Track"
+    event: "CodeSangram - Online Hackathon 2026"
+    year: "2026"
+    bullets:
+      - "Won the Blockchain Track for TransitOS, a decentralized transit settlement system built with Solidity, Polygon, and FastAPI."
+
+experience:
+  - company: "IEEExWIE, SFIT"
+    location: "Mumbai, India"
+    title: "Webmaster"
+    dates: "2026-Current"
+    bullets:
+      - "Managing and maintaining IEEExWIE SFIT’s web infrastructure, supporting chapter information, events, and digital resources."
+      - "Coordinating website updates and technical requirements with the organizing team to keep chapter content and event information accurate and accessible."
+  - company: "IEEExWIE, SFIT"
+    location: "Mumbai, India"
+    title: "Technical Executive"
+    dates: "2025-2026"
+    bullets:
+      - "Coordinated technical operations and digital infrastructure for college-wide events alongside cross-functional organizing teams."
+
+technical_skills:
+  Languages: "Python, C/C++, Java, Kotlin, Dart, JavaScript/TypeScript"
+  Frameworks and Libraries: "FastAPI, React, Flutter, Jetpack Compose, Celery, Numba"
+  Tools: "Git, Docker, Redis, Firebase, Unreal Engine, Blender"

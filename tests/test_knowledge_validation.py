@@ -1,9 +1,9 @@
 import pytest
 from pathlib import Path
-from core.knowledge.models import (
+from arb.core.knowledge.models import (
     KnowledgeComponent, KnowledgeComponentType
 )
-from core.knowledge.store import KnowledgeStore
+from arb.core.knowledge.store import KnowledgeStore
 
 def test_production_knowledge_tree_is_valid():
     """

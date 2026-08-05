@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
-from models.domain import SourceResult
+from arb.models.domain import SourceResult
 
 class BaseAdapter(ABC):
     """

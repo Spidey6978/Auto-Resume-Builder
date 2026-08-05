@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
-from models.domain import TargetContext
+from arb.models.domain import TargetContext
 
 @dataclass
 class PlannedFact:

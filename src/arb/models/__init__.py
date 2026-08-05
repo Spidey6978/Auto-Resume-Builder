@@ -1,4 +1,4 @@
-from models.domain import (
+from arb.models.domain import (
     Fact,
     Project,
     ExperienceItem,
@@ -9,7 +9,7 @@ from models.domain import (
     SourceResult,
     CanonicalProfile,
 )
-from models.presentation import (
+from arb.models.presentation import (
     RenderedProject,
     RenderedExperience,
     RenderedAward,

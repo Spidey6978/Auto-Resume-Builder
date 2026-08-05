@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Tuple, Dict
 
 
+from arb.core.paths import get_user_data_dir
+
 class CacheManager:
     """
     SQLite-backed key-value cache manager.
@@ -15,11 +17,9 @@ class CacheManager:
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            # Default to .cache/build_cache.db relative to the project root
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            cache_dir = os.path.join(base_dir, ".cache")
-            os.makedirs(cache_dir, exist_ok=True)
-            db_path = os.path.join(cache_dir, "build_cache.db")
+            cache_dir = get_user_data_dir() / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(cache_dir / "build_cache.db")
 
         self.db_path = db_path
         self._init_db()

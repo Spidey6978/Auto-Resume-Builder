@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
-from core.pipeline import BuildPipeline
-from models.domain import CanonicalProfile, Project, Fact, TargetContext
-from models.presentation import ResumeDocument
+from arb.core.pipeline import BuildPipeline
+from arb.models.domain import CanonicalProfile, Project, Fact, TargetContext
+from arb.models.presentation import ResumeDocument
 
 def test_pipeline_build_resume():
     # 1. Mock dependencies
@@ -13,16 +13,16 @@ def test_pipeline_build_resume():
     mock_generator = MagicMock()
     mock_generator_result = MagicMock()
     mock_generator_result.status = "success"
-    from models.presentation import RenderedBullet
+    from arb.models.presentation import RenderedBullet
     mock_generator_result.bullets = [RenderedBullet(text="Bullet 1"), RenderedBullet(text="Bullet 2")]
     mock_generator.generate_project_bullets.return_value = mock_generator_result
 
     mock_compiler = MagicMock()
-    from core.compiler import CompilationResult
+    from arb.core.compilers.engines import CompilationResult
     mock_compiler.compile_resume.return_value = CompilationResult(pdf_path="/build/resume.pdf", page_count=1, success=True)
     
     mock_target_engine = MagicMock()
-    from models.plan import ResumePlan, PlannedProject, PlannedFact
+    from arb.models.plan import ResumePlan, PlannedProject, PlannedFact
     mock_target_engine.create_plan.return_value = ResumePlan(
         target=TargetContext(id="test", description="desc"),
         projects=[

@@ -11,3 +11,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .agents/
+
+# Packaging
+dist/
+build/
+*.egg-info/
