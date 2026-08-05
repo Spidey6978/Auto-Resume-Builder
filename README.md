@@ -4,7 +4,7 @@ A target-aware resume generation engine that turns a single **Canonical Profile*
 
 Instead of maintaining multiple resume copies, Auto Resume Builder stores your career history as structured facts, ranks the most relevant evidence for each target, generates grounded resume bullets, and compiles them into a polished LuaLaTeX PDF — automatically trimming lower-priority content when the document exceeds its page budget.
 
-> **Status:** Core targeting and generation pipeline complete. Currently supports GitHub + manual profile data, with multi-source ingestion planned next.
+> **Status:** Core targeting and generation pipeline complete. Currently supports GitHub ingestion, with multi-source ingestion planned next.
 
 ---
 
@@ -25,7 +25,7 @@ Instead of maintaining multiple resume copies, Auto Resume Builder stores your c
 ## 🏗️ How It Works
 
 ```text
-GitHub / Manual Input
+GitHub Ingestion
         │
         ▼
 ┌───────────────────┐
@@ -68,44 +68,51 @@ This keeps generated wording and targeting decisions from contaminating the cand
 
 ## 🚀 Getting Started
 
-### Requirements
+### Prerequisites
 
-- Python 3.10+
-- LuaLaTeX ([MiKTeX](https://miktex.org/), [TeX Live](https://www.tug.org/texlive/), or [MacTeX](https://www.tug.org/mactex/))
-- Google Gemini API key
-- GitHub token *(optional for public repositories)*
+- **Python 3.10+**: Ensure Python is installed and available in your PATH.
+- **LaTeX Distribution**: You must have a LaTeX engine installed that supports `lualatex`.
+  - **Windows**: [MiKTeX](https://miktex.org/)
+  - **Linux**: `sudo apt install texlive-full`
+  - **macOS**: [MacTeX](https://www.tug.org/mactex/)
+- **API Keys**:
+  - **Google Gemini API Key**: Required for the generation engine.
+  - **GitHub Token**: Optional but highly recommended to avoid API rate limits when fetching repositories.
 
 ### Installation
 
-```bash
-git clone https://github.com/Spidey6978/Auto-Resume-Builder.git
-cd Auto-Resume-Builder
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Spidey6978/Auto-Resume-Builder.git
+   cd Auto-Resume-Builder
+   ```
 
-python -m venv venv
-```
+2. **Set up a virtual environment**
+   ```bash
+   python -m venv venv
+   ```
 
-Activate the environment:
+   *Activate the environment:*
+   ```bash
+   # Windows
+   .\venv\Scripts\activate
 
-```bash
-# Windows
-.\venv\Scripts\activate
+   # Linux / macOS
+   source venv/bin/activate
+   ```
 
-# Linux / macOS
-source venv/bin/activate
-```
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Install dependencies:
+4. **Environment Configuration**
+   Create a `.env` file in the root of the project:
 
-```bash
-pip install -r requirements.txt
-```
-
-Create `.env`:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-GITHUB_TOKEN=your_github_token
-```
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GITHUB_TOKEN=your_github_token_here
+   ```
 
 ---
 
