@@ -26,7 +26,7 @@ else:
 def init_services(args):
     """Initializes and returns the BuildPipeline and related dependencies."""
     from arb.core.cache import CacheManager
-    from arb.core.ai_gateway import AIGateway
+    from arb.core.ai_gateway import AIGateway, MockAIGateway
     from arb.core.compiler import ResumeCompiler
     from arb.adapters.github_adapter import GitHubAdapter
     from arb.adapters.registry import AdapterRegistry
@@ -50,13 +50,15 @@ def init_services(args):
     
     mock_ai = getattr(args, "mock_ai", False)
     
-    gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-    if not gemini_api_key and not mock_ai:
-        print("  [!] Error: GEMINI_API_KEY not set in environment or .env file.")
-        print("      Run 'arb init' to set up your environment.")
-        sys.exit(1)
-
-    ai_gateway = AIGateway(api_key=gemini_api_key)
+    if mock_ai:
+        ai_gateway = MockAIGateway()
+    else:
+        gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        if not gemini_api_key:
+            print("  [!] Error: GEMINI_API_KEY not set in environment or .env file.")
+            print("      Run 'arb init' to set up your environment.")
+            sys.exit(1)
+        ai_gateway = AIGateway(api_key=gemini_api_key)
     
     github_token = os.getenv("GITHUB_TOKEN")
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
@@ -146,14 +148,25 @@ def handle_init(args):
     data_dir = get_user_data_dir()
     print(f"User data directory: {data_dir}")
     
-    # Check for legacy canonical profile in repo (if running from source)
-    legacy_path = Path.cwd() / "data" / "canonical_profile.yaml"
     canonical_path = data_dir / "canonical_profile.yaml"
     
-    if not canonical_path.exists():
+    if getattr(args, 'profile', None):
+        import shutil
+        src_profile = Path(args.profile)
+        if src_profile.exists():
+            shutil.copy(src_profile, canonical_path)
+            print(f"Imported profile from {args.profile}")
+        else:
+            print(f"Provided profile path does not exist: {args.profile}")
+            sys.exit(1)
+    elif not canonical_path.exists():
+        legacy_path = Path.cwd() / "data" / "canonical_profile.yaml"
         if legacy_path.exists():
             print(f"Found an existing repository profile at:\n{legacy_path}\n")
-            ans = input("Import it into ARB? [Y/n] ").strip().lower()
+            if getattr(args, 'non_interactive', False):
+                ans = "y"
+            else:
+                ans = input("Import it into ARB? [Y/n] ").strip().lower()
             if ans in ["y", "yes", ""]:
                 try:
                     from arb.core.profile_manager import CanonicalProfile
@@ -174,7 +187,7 @@ def handle_init(args):
             canonical_path.write_text("personal:\n  name: ''\nexperience: []\nprojects: []\neducation: []\nskills: []\n", encoding="utf-8")
     
     env_file = data_dir / ".env"
-    if not env_file.exists():
+    if not env_file.exists() and not getattr(args, 'non_interactive', False):
         print("\nAPI Configuration")
         key = input("Enter your Google Gemini API Key (or press enter to skip): ").strip()
         github = input("Enter your GitHub Token (optional, for rate limits): ").strip()
@@ -431,7 +444,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # arb init
-    subparsers.add_parser("init", help="Initialize ARB profile and settings")
+    init_parser = subparsers.add_parser("init", help="Initialize ARB profile and settings")
+    init_parser.add_argument("--non-interactive", action="store_true", help="Run without prompts")
+    init_parser.add_argument("--profile", type=str, help="Path to a YAML profile to import")
 
     # arb doctor
     subparsers.add_parser("doctor", help="Check system health and dependencies")

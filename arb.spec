@@ -7,7 +7,7 @@ if os.path.exists('bin'):
 
 a = Analysis(
     ['src\\arb\\cli\\main.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[],
     datas=[
         ('src/arb/templates', 'arb/templates'),

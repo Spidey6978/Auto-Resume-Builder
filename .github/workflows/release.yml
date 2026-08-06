@@ -53,8 +53,9 @@ jobs:
           echo "Testing doctor (will fail on tools but should not crash):"
           arb doctor || true
           
-          # Initialize headless by seeding the canonical profile via ARB's own path resolution
-          python -c "from arb.core.paths import get_user_data_dir; d = get_user_data_dir(); d.mkdir(parents=True, exist_ok=True); (d / 'canonical_profile.yaml').write_text('personal:\n  name:\nexperience: []\nprojects: []\neducation: []\nskills: []')"
+          # Initialize headless by seeding the canonical profile via ARB's public CLI
+          echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > fixture.yaml
+          arb init --non-interactive --profile fixture.yaml
           
           echo "Testing mock build:"
           arb build --target backend --mock-ai
@@ -108,8 +109,9 @@ jobs:
           # Test doctor (may exit non-zero due to missing profile/keys, but shouldn't crash)
           .\dist\arb-windows-x64.exe doctor; if ($LASTEXITCODE -ne 0) { Write-Host "Doctor returned non-zero (expected)" }
           
-          # Seed canonical profile dynamically
-          python -c "from arb.core.paths import get_user_data_dir; d = get_user_data_dir(); d.mkdir(parents=True, exist_ok=True); (d / 'canonical_profile.yaml').write_text('personal:\n  name:\nexperience: []\nprojects: []\neducation: []\nskills: []')"
+          # Seed canonical profile dynamically via ARB's public CLI
+          "personal:`n  name: 'Test'`nexperience: []`nprojects: []`neducation: []`nskills: []" | Out-File -Encoding utf8 fixture.yaml
+          .\dist\arb-windows-x64.exe init --non-interactive --profile fixture.yaml
           
           # Test mock build
           .\dist\arb-windows-x64.exe build --target backend --mock-ai

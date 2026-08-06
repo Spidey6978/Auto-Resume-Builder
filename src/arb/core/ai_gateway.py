@@ -64,9 +64,6 @@ class AIGateway:
         Generic text generation with rate limiting, retries, and fallback cascade.
         Does NOT handle caching (callers should handle their own cache semantics).
         """
-        if mock_ai:
-            return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
-
         preferred_order = [
             "gemini-2.5-flash",
             "gemini-1.5-flash",
@@ -99,3 +96,11 @@ class AIGateway:
                         logger.warning(f"{model_name} failed after {max_retries} attempts. Trying next model in cascade...")
 
         raise RuntimeError(f"All Gemini models failed to generate text for '{model_hint}' due to API errors.")
+
+class MockAIGateway:
+    """Fake AIGateway for deterministic, offline testing."""
+    def __init__(self):
+        pass
+
+    def generate_text(self, prompt: str, mock_ai: bool = False, model_hint: str = "") -> str:
+        return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
