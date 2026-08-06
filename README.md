@@ -80,39 +80,37 @@ This keeps generated wording and targeting decisions from contaminating the cand
 
 ### Installation
 
-Auto Resume Builder is distributed as a standalone Python wheel (`.whl`). You don't need to clone the repository or understand the source code to use it.
+Auto Resume Builder is now available as a **standalone Windows executable** and a Python package.
 
-1. **Set up a virtual environment (Recommended)**
+#### Option A: Standalone Executable (No Python Required)
+The easiest way to use ARB on Windows is to download the standalone executable.
+1. Head over to the [GitHub Releases](https://github.com/Spidey6978/Auto-Resume-Builder/releases) page.
+2. Download `arb-windows-x64.exe` from the latest release.
+3. Open your terminal (PowerShell or Command Prompt) and run it directly:
+   ```powershell
+   .\arb-windows-x64.exe init
+   ```
+*(No Python, `pip`, or virtual environment is required!)*
+
+#### Option B: Python Wheel (For Developers/macOS/Linux)
+If you prefer installing via Python or are on a non-Windows OS, you can install the `.whl` package.
+1. Set up a virtual environment:
    ```bash
    python -m venv venv
+   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
    ```
-
-   *Activate the environment:*
-   ```bash
-   # Windows
-   .\venv\Scripts\activate
-
-   # Linux / macOS
-   source venv/bin/activate
-   ```
-
-2. **Download and Install the latest Release**
-   Head over to the [GitHub Releases](https://github.com/Spidey6978/Auto-Resume-Builder/releases) page and download the latest `.whl` file (e.g., `auto_resume_builder-0.1.0a1-py3-none-any.whl`).
-
-   Then install it via pip:
+2. Download the `.whl` file from the [GitHub Releases](https://github.com/Spidey6978/Auto-Resume-Builder/releases) page and install it:
    ```bash
    pip install path/to/auto_resume_builder-0.1.0a1-py3-none-any.whl
    ```
-   *(This automatically installs all dependencies like Jinja2 and PyYAML).*
-
-3. **Initialize ARB**
-   The application now handles its own initialization and setup. Since it is installed globally in your virtual environment, simply run:
-
+3. Initialize the application:
    ```bash
    arb init
    ```
-   
-   This will guide you through setting up your user data directory, creating a blank profile, and configuring your API keys.
+
+### Setup & Initialization
+
+Whether you downloaded the `.exe` or installed the Python package, running the `init` command will guide you through setting up your user data directory, creating a blank canonical profile, and securely configuring your API keys.
 
 ---
 
@@ -243,14 +241,16 @@ Auto Resume Builder is rapidly evolving into a fully autonomous, agentic career 
 
 The core ingestion and generation engines are functional, and the architecture is stabilized. With Phase 4 (Universal Data Ingestion) officially complete, you can now seamlessly collect your career history across GitHub, LinkedIn, PDFs, and manual entry.
 
-Our immediate roadmap focuses on unlocking entirely new candidate domains and giving you more control over the generation process:
+Our immediate roadmap is structured to gather real-world friction and feedback before expanding horizontally:
 
 ```text
 ✓ Phase 4: Universal Data Ingestion (GitHub v2, LinkedIn, Manual, Documents, Source Merging)
+✓ Phase 4.6 & 4.7: Packaging & Standalone Distribution (The arb.exe Windows release)
 
-→ Phase 4.6: Non-engineering Domains (Academic CVs, Consulting, Medical)
-→ Phase 5: The "Interactive Grilling" Planner (An AI agent interviews you to align on design decisions)
-→ Phase 6: End-to-End Orchestration (Self-managing subagents for continuous background syncing)
+→ ALPHA FREEZE: Gathering UX and correctness feedback from early friends/adopters
+→ Phase 5.0: Productization & Core UX improvements based on feedback
+→ Phase 6.0: Multi-domain expansion (Academic CVs, Consulting, Medical)
+→ Phase 7.0: Web UI & End-to-End Orchestration
 ```
 
 Larger ideas and deliberately deferred improvements live in [`BACKLOG.md`](./BACKLOG.md) so they don't turn into feature creep.
