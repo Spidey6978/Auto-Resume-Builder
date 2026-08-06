@@ -4,6 +4,8 @@ import logging
 from typing import Protocol
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+from arb.core.paths import get_bundled_binary_dir
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +62,35 @@ class LuaLaTeXEngine:
 
 
 class TectonicEngine:
+    def _resolve_tectonic(self) -> str:
+        """
+        Resolves the tectonic executable.
+        Checks bundled binaries first, then falls back to system PATH.
+        """
+        # 1. Check bundled binary
+        bin_dir = get_bundled_binary_dir()
+        bundled_exe = bin_dir / "tectonic.exe" if os.name == "nt" else bin_dir / "tectonic"
+        if bundled_exe.exists() and bundled_exe.is_file():
+            return str(bundled_exe)
+        
+        # 2. Check system PATH
+        system_exe = shutil.which("tectonic")
+        if system_exe:
+            return system_exe
+            
+        return "tectonic"  # Let subprocess throw FileNotFoundError
+
     def compile(self, tex_path: str) -> CompilationResult:
         output_dir = os.path.dirname(tex_path)
         pdf_path = tex_path.replace(".tex", ".pdf")
         
-        logger.info("Compiling LaTeX to PDF using Tectonic...")
+        tectonic_cmd = self._resolve_tectonic()
+        
+        logger.info(f"Compiling LaTeX to PDF using Tectonic ({tectonic_cmd})...")
         try:
             subprocess.run(
                 [
-                    "tectonic",
+                    tectonic_cmd,
                     "--outdir",
                     output_dir,
                     tex_path,
