@@ -58,7 +58,7 @@ jobs:
           arb init --non-interactive --profile fixture.yaml
           
           echo "Testing mock build:"
-          arb build --target backend --mock-ai
+          arb build --target backend --mock-ai --output backend_resume.pdf
           
           echo "Verifying output PDF exists:"
           test -f backend_resume.pdf || { echo "PDF not generated!"; exit 1; }
@@ -114,7 +114,7 @@ jobs:
           .\dist\arb-windows-x64.exe init --non-interactive --profile fixture.yaml
           
           # Test mock build
-          .\dist\arb-windows-x64.exe build --target backend --mock-ai
+          .\dist\arb-windows-x64.exe build --target backend --mock-ai --output backend_resume.pdf
           
           # Verify PDF
           if (!(Test-Path "backend_resume.pdf")) { throw "PDF not generated!" }
