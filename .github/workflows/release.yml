@@ -53,13 +53,14 @@ jobs:
           echo "Testing doctor (will fail on tools but should not crash):"
           arb doctor || true
           
-          # Initialize headless to avoid interactive prompts hanging
-          # Manually seed canonical profile for testing
-          mkdir -p ~/.local/share/arb/auto-resume-builder
-          echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > ~/.local/share/arb/auto-resume-builder/canonical_profile.yaml
+          # Initialize headless by seeding the canonical profile via ARB's own path resolution
+          python -c "from arb.core.paths import get_user_data_dir; d = get_user_data_dir(); d.mkdir(parents=True, exist_ok=True); (d / 'canonical_profile.yaml').write_text('personal:\n  name:\nexperience: []\nprojects: []\neducation: []\nskills: []')"
           
-          # Now try mock build - this must succeed
+          echo "Testing mock build:"
           arb build --target backend --mock-ai
+          
+          echo "Verifying output PDF exists:"
+          test -f backend_resume.pdf || { echo "PDF not generated!"; exit 1; }
 
       - name: Upload Artifacts
         # Only upload artifacts from one python version run to avoid duplication
@@ -98,6 +99,23 @@ jobs:
 
       - name: Rename Executable
         run: Rename-Item -Path "dist\arb.exe" -NewName "arb-windows-x64.exe"
+
+      - name: Smoke Test Executable
+        run: |
+          # Test help
+          .\dist\arb-windows-x64.exe --help
+          
+          # Test doctor (may exit non-zero due to missing profile/keys, but shouldn't crash)
+          .\dist\arb-windows-x64.exe doctor; if ($LASTEXITCODE -ne 0) { Write-Host "Doctor returned non-zero (expected)" }
+          
+          # Seed canonical profile dynamically
+          python -c "from arb.core.paths import get_user_data_dir; d = get_user_data_dir(); d.mkdir(parents=True, exist_ok=True); (d / 'canonical_profile.yaml').write_text('personal:\n  name:\nexperience: []\nprojects: []\neducation: []\nskills: []')"
+          
+          # Test mock build
+          .\dist\arb-windows-x64.exe build --target backend --mock-ai
+          
+          # Verify PDF
+          if (!(Test-Path "backend_resume.pdf")) { throw "PDF not generated!" }
 
       - name: Upload Windows Executable
         uses: actions/upload-artifact@v4
