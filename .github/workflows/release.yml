@@ -38,6 +38,11 @@ jobs:
           # Find and install the wheel
           pip install dist/*.whl
 
+      - name: Setup Tectonic
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Smoke Test (Isolated)
         run: |
           source .venv-wheel-test/bin/activate
@@ -53,8 +58,8 @@ jobs:
           mkdir -p ~/.local/share/arb/auto-resume-builder
           echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > ~/.local/share/arb/auto-resume-builder/canonical_profile.yaml
           
-          # Now try mock build
-          arb build --target backend --mock-ai || echo "Mock build failed (expected if tectonic is missing in Ubuntu image, but arb itself shouldn't crash)."
+          # Now try mock build - this must succeed
+          arb build --target backend --mock-ai
 
       - name: Upload Artifacts
         # Only upload artifacts from one python version run to avoid duplication
