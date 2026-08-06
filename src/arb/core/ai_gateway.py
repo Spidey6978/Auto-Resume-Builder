@@ -3,7 +3,8 @@ import time
 import random
 import re
 import logging
-import google.generativeai as genai
+from google import genai
+from google.genai.errors import APIError
 from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -56,24 +57,7 @@ class AIGateway:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self._available_models: Optional[List[str]] = None
-
-    def _get_available_models(self) -> List[str]:
-        if self._available_models is not None:
-            return self._available_models
-            
-        try:
-            genai.configure(api_key=self.api_key)
-            self._available_models = [
-                m.name.replace("models/", "")
-                for m in genai.list_models()
-                if "generateContent" in m.supported_generation_methods
-            ]
-        except Exception as e:
-            logger.warning(f"Could not fetch available Gemini models: {e}")
-            self._available_models = []
-            
-        return self._available_models
+        self.client = genai.Client(api_key=api_key)
 
     def generate_text(self, prompt: str, mock_ai: bool = False, model_hint: str = "") -> str:
         """
@@ -83,29 +67,21 @@ class AIGateway:
         if mock_ai:
             return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
 
-        available_models = self._get_available_models()
         preferred_order = [
             "gemini-2.5-flash",
             "gemini-1.5-flash",
             "gemini-1.5-pro",
-            "gemini-pro",
-            "gemini-1.0-pro"
+            "gemini-pro"
         ]
 
-        models_to_try = [m for m in preferred_order if m in available_models]
-        if not models_to_try and available_models:
-            models_to_try.append(available_models[0])
-        if not models_to_try:
-            models_to_try = ["gemini-pro"]
-
-        genai.configure(api_key=self.api_key)
-
-        for model_name in models_to_try:
+        for model_name in preferred_order:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
                     return response.text
                 except Exception as e:
                     error_type, retry_after_sec = classify_exception(e)
