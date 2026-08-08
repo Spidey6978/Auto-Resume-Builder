@@ -126,8 +126,112 @@ jobs:
           name: auto-resume-builder-windows-exe
           path: dist/arb-windows-x64.exe
 
+  build-linux-bin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Setup Tectonic
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Executable
+        run: pyinstaller arb.spec
+
+      - name: Rename Executable
+        run: mv dist/arb dist/arb-linux-x64
+
+      - name: Smoke Test Executable
+        run: |
+          # Test help
+          ./dist/arb-linux-x64 --help
+          
+          # Test doctor
+          ./dist/arb-linux-x64 doctor || true
+          
+          # Seed canonical profile
+          echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > fixture.yaml
+          ./dist/arb-linux-x64 init --non-interactive --profile fixture.yaml
+          
+          # Test mock build
+          ./dist/arb-linux-x64 build --target backend --mock-ai --output backend_resume.pdf
+          
+          # Verify PDF
+          test -f backend_resume.pdf || { echo "PDF not generated!"; exit 1; }
+
+      - name: Upload Linux Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-resume-builder-linux-bin
+          path: dist/arb-linux-x64
+
+  build-macos-bin:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Setup Tectonic
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Executable
+        run: pyinstaller arb.spec
+
+      - name: Rename Executable
+        run: mv dist/arb dist/arb-macos-x64
+
+      - name: Smoke Test Executable
+        run: |
+          # Test help
+          ./dist/arb-macos-x64 --help
+          
+          # Test doctor
+          ./dist/arb-macos-x64 doctor || true
+          
+          # Seed canonical profile
+          echo -e "personal:\n  name: 'Test'\nexperience: []\nprojects: []\neducation: []\nskills: []" > fixture.yaml
+          ./dist/arb-macos-x64 init --non-interactive --profile fixture.yaml
+          
+          # Test mock build
+          ./dist/arb-macos-x64 build --target backend --mock-ai --output backend_resume.pdf
+          
+          # Verify PDF
+          test -f backend_resume.pdf || { echo "PDF not generated!"; exit 1; }
+
+      - name: Upload macOS Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-resume-builder-macos-bin
+          path: dist/arb-macos-x64
+
   release:
-    needs: [build-and-test, build-windows-exe]
+    needs: [build-and-test, build-windows-exe, build-linux-bin, build-macos-bin]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     
@@ -142,6 +246,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: auto-resume-builder-windows-exe
+          path: dist
+          
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: auto-resume-builder-linux-bin
+          path: dist
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: auto-resume-builder-macos-bin
           path: dist
           
       - name: Release

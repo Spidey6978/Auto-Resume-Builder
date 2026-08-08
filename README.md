@@ -80,16 +80,24 @@ This keeps generated wording and targeting decisions from contaminating the cand
 
 ### Installation
 
-Auto Resume Builder is now available as a **standalone Windows executable** and a Python package.
+Auto Resume Builder is now available as **standalone executables** (Windows, Linux, macOS) and a Python package.
 
 #### Option A: Standalone Executable (No Python Required)
-The easiest way to use ARB on Windows is to download the standalone executable.
+The easiest way to use ARB is to download the standalone executable for your operating system.
 1. Head over to the [GitHub Releases](https://github.com/Spidey6978/Auto-Resume-Builder/releases) page.
-2. Download `arb-windows-x64.exe` from the latest release.
-3. Open your terminal (PowerShell or Command Prompt) and run it directly:
-   ```powershell
-   .\arb-windows-x64.exe init
-   ```
+2. Download the binary for your OS (`arb-windows-x64.exe`, `arb-linux-x64`, or `arb-macos-x64`) from the latest release.
+3. Open your terminal and run it directly.
+
+On Windows (PowerShell/Command Prompt):
+```powershell
+.\arb-windows-x64.exe init
+```
+
+On Linux/macOS:
+```bash
+chmod +x arb-linux-x64
+./arb-linux-x64 init
+```
 *(No Python, `pip`, or virtual environment is required!)*
 
 #### Option B: Python Wheel (For Developers/macOS/Linux)
@@ -245,7 +253,7 @@ Our immediate roadmap is structured to gather real-world friction and feedback b
 
 ```text
 ✓ Phase 4: Universal Data Ingestion (GitHub v2, LinkedIn, Manual, Documents, Source Merging)
-✓ Phase 4.6 & 4.7: Packaging & Standalone Distribution (The arb.exe Windows release)
+✓ Phase 4.6 & 4.7: Packaging & Standalone Distribution (Windows, Linux, macOS releases)
 
 → ALPHA FREEZE: Gathering UX and correctness feedback from early friends/adopters
 → Phase 5.0: Productization & Core UX improvements based on feedback
