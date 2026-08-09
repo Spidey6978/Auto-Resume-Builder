@@ -6,7 +6,7 @@ if os.path.exists('bin'):
     extra_datas.append(('bin', 'bin'))
 
 a = Analysis(
-    ['src\\arb\\cli\\main.py'],
+    ['src/arb/cli/main.py'],
     pathex=['src'],
     binaries=[],
     datas=[
