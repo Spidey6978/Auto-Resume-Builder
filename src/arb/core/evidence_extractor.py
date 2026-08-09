@@ -10,6 +10,9 @@ from arb.core.fact_extractor import FactExtractor
 
 logger = logging.getLogger(__name__)
 
+class ExtractionError(Exception):
+    pass
+
 @dataclass
 class EntityExtractionResult:
     projects: List[Project] = field(default_factory=list)
@@ -106,7 +109,6 @@ class EvidenceExtractor:
         Return ONLY a JSON array of objects with schema:
         [
           {{
-            "id": "normalized_company_title",
             "organization": "Company Name",
             "title": "Job Title",
             "location": "City, State",
@@ -121,9 +123,15 @@ class EvidenceExtractor:
         response = self.ai.generate_text(prompt, mock_ai=mock_ai)
         try:
             data = json.loads(self._clean_json_response(response))
+            for item in data:
+                item["id"] = f"{item.get('organization', '')}_{item.get('title', '')}".replace(" ", "_").lower()
             return [ExperienceItem.from_dict(d) for d in data]
-        except Exception:
-            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from AI response: {e}")
+            raise ExtractionError(f"Failed to parse experience: invalid JSON. {e}")
+        except Exception as e:
+            logger.error(f"Failed to extract experience: {e}")
+            raise ExtractionError(f"Failed to extract experience: {e}")
 
     def _extract_education(self, evidence: EvidenceItem, mock_ai: bool) -> List[EducationItem]:
         prompt = f"""
@@ -131,7 +139,6 @@ class EvidenceExtractor:
         Return ONLY a JSON array of objects with schema:
         [
           {{
-            "id": "normalized_school_degree",
             "institution": "University Name",
             "degree": "Degree Level and Major",
             "location": "City, State",
@@ -146,9 +153,15 @@ class EvidenceExtractor:
         response = self.ai.generate_text(prompt, mock_ai=mock_ai)
         try:
             data = json.loads(self._clean_json_response(response))
+            for item in data:
+                item["id"] = f"{item.get('institution', '')}_{item.get('degree', '')}".replace(" ", "_").lower()
             return [EducationItem.from_dict(d) for d in data]
-        except Exception:
-            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from AI response: {e}")
+            raise ExtractionError(f"Failed to parse education: invalid JSON. {e}")
+        except Exception as e:
+            logger.error(f"Failed to extract education: {e}")
+            raise ExtractionError(f"Failed to extract education: {e}")
 
     def _extract_projects(self, evidence: EvidenceItem, mock_ai: bool) -> List[Project]:
         prompt = f"""
@@ -156,7 +169,6 @@ class EvidenceExtractor:
         Return ONLY a JSON array of objects with schema:
         [
           {{
-            "id": "normalized_project_name",
             "name": "Project Name",
             "link": "URL if present",
             "tech_stack": ["Tech1", "Tech2"]
@@ -169,9 +181,15 @@ class EvidenceExtractor:
         response = self.ai.generate_text(prompt, mock_ai=mock_ai)
         try:
             data = json.loads(self._clean_json_response(response))
+            for item in data:
+                item["id"] = item.get("name", "").replace(" ", "_").lower()
             return [Project.from_dict(d) for d in data]
-        except Exception:
-            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from AI response: {e}")
+            raise ExtractionError(f"Failed to parse projects: invalid JSON. {e}")
+        except Exception as e:
+            logger.error(f"Failed to extract projects: {e}")
+            raise ExtractionError(f"Failed to extract projects: {e}")
 
     def _extract_awards(self, evidence: EvidenceItem, mock_ai: bool) -> List[AwardItem]:
         prompt = f"""
@@ -179,7 +197,6 @@ class EvidenceExtractor:
         Return ONLY a JSON array of objects with schema:
         [
           {{
-            "id": "normalized_award_name",
             "title": "Award Name",
             "organization": "Issuing Org",
             "year": 2023
@@ -192,9 +209,15 @@ class EvidenceExtractor:
         response = self.ai.generate_text(prompt, mock_ai=mock_ai)
         try:
             data = json.loads(self._clean_json_response(response))
+            for item in data:
+                item["id"] = item.get("title", "").replace(" ", "_").lower()
             return [AwardItem.from_dict(d) for d in data]
-        except Exception:
-            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from AI response: {e}")
+            raise ExtractionError(f"Failed to parse awards: invalid JSON. {e}")
+        except Exception as e:
+            logger.error(f"Failed to extract awards: {e}")
+            raise ExtractionError(f"Failed to extract awards: {e}")
 
     def _extract_skills(self, evidence: EvidenceItem, mock_ai: bool) -> Dict[str, List[str]]:
         prompt = f"""
@@ -207,5 +230,9 @@ class EvidenceExtractor:
         response = self.ai.generate_text(prompt, mock_ai=mock_ai)
         try:
             return json.loads(self._clean_json_response(response))
-        except Exception:
-            return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from AI response: {e}")
+            raise ExtractionError(f"Failed to parse skills: invalid JSON. {e}")
+        except Exception as e:
+            logger.error(f"Failed to extract skills: {e}")
+            raise ExtractionError(f"Failed to extract skills: {e}")

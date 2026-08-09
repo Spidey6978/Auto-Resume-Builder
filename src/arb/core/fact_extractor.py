@@ -40,11 +40,11 @@ class FactExtractor:
         self.ai = ai_gateway
         self.cache = cache_manager
 
-    def _fingerprint(self, source_result: SourceResult) -> str:
+    def _fingerprint(self, source_result: SourceResult, entity_id: str) -> str:
         prompt_hash = CacheManager.hash_key(self.PROMPT_VERSION)
         evidence_str = json.dumps([e.to_dict() for e in source_result.evidence], sort_keys=True)
         content_hash = CacheManager.hash_key(evidence_str)
-        return f"{self.PROMPT_VERSION}||{prompt_hash}||{source_result.source_id}||{content_hash}"
+        return f"{self.PROMPT_VERSION}||{prompt_hash}||{source_result.source_id}||{entity_id}||{content_hash}"
 
     def _generate_fact_id(self, entity_id: str, fact_type: str, text: str) -> str:
         normalized = re.sub(r'\W+', '', text.lower())
@@ -73,7 +73,7 @@ class FactExtractor:
         if source.status != SourceStatus.SUCCESS or not source.evidence:
             return ExtractionResult(facts=[], status=ExtractionStatus.INSUFFICIENT_SOURCE)
 
-        cache_key = self._fingerprint(source)
+        cache_key = self._fingerprint(source, entity_id)
         cached = self.cache.get(self.CACHE_NAMESPACE, cache_key)
         if cached is not None and isinstance(cached, list):
             # Reconstruct Fact objects from cached dicts
@@ -93,6 +93,10 @@ class FactExtractor:
         Each fact should represent one independently useful claim.
         Quantitative metrics must appear explicitly in the evidence; otherwise metric MUST be null.
         You MUST include the exact 'provenance' object from the EvidenceItem that supports the fact.
+        
+        IMPORTANT: Extract facts SPECIFICALLY related to the entity "{entity_id}". 
+        Do NOT extract facts about other projects, companies, or entities mentioned in the text.
+        If there are no facts related to "{entity_id}", return an empty JSON array [].
 
         Output ONLY a JSON array of objects with the following schema:
         [

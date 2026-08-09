@@ -75,12 +75,25 @@ class GitHubAdapter(BaseAdapter):
                 self.cache.set(self.CACHE_NAMESPACE, url, data, etag=new_etag)
                 return data
 
-            # 4. Handle HTTP 4xx/5xx Errors: Fallback to cache
-            if response.status_code in (429, 500, 502, 503, 504) and cached_payload is not None:
+            # 4. Fail Loudly on Rate Limits
+            if response.status_code in (403, 429):
+                # GitHub uses 403 for rate limits. Check headers to be sure.
+                if response.headers.get("X-RateLimit-Remaining") == "0":
+                    reset_time = response.headers.get("X-RateLimit-Reset", "unknown")
+                    raise RuntimeError(f"GitHub API rate limit exceeded! Reset at {reset_time} (Unix time).")
+                elif response.status_code == 429:
+                    raise RuntimeError("GitHub API rate limit exceeded (429).")
+                # Secondary rate limits can also trigger 403 without the remaining header being 0
+                if "rate limit" in response.text.lower() or "secondary rate" in response.text.lower():
+                    raise RuntimeError("GitHub API secondary rate limit exceeded.")
+
+            # 5. Handle HTTP 5xx Errors: Fallback to cache
+            if response.status_code in (500, 502, 503, 504) and cached_payload is not None:
                 logger.warning(f"GitHub HTTP {response.status_code} for {url}. Serving cached fallback.")
                 return cached_payload
 
-            logger.error(f"GitHub HTTP {response.status_code} for {url}")
+            if response.status_code != 404:
+                logger.error(f"GitHub HTTP {response.status_code} for {url}")
             return None
 
         except requests.RequestException as e:
@@ -161,9 +174,12 @@ class GitHubAdapter(BaseAdapter):
         readme_content = ""
         if readme_data and isinstance(readme_data, dict) and 'content' in readme_data:
             try:
-                readme_content = base64.b64decode(readme_data['content']).decode('utf-8', errors='ignore')
-            except Exception:
+                readme_content = base64.b64decode(readme_data['content']).decode('utf-8')
+            except Exception as e:
+                logger.warning(f"Failed to decode README for {repo_name}: {e}")
                 readme_content = ""
+        else:
+            logger.warning(f"No README content returned from GitHub API for {username}/{repo_name}")
 
         # Inject Technical Context
         context_lines = ["=== TECHNICAL CONTEXT ==="]
