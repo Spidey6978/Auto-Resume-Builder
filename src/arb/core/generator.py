@@ -215,7 +215,7 @@ class ContentGenerator:
         
         Experience Context:
         Organization: {exp.organization}
-        Role: {exp.role}
+        Role: {exp.title}
         Target Role Focus: {target.description}
         
         Extracted Facts:

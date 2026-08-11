@@ -8,6 +8,21 @@ class RenderedBullet:
     source_fact_ids: List[str] = field(default_factory=list)
     relevance_score: float = 0.0
 
+    def to_dict(self) -> dict:
+        return {
+            "text": self.text,
+            "source_fact_ids": self.source_fact_ids,
+            "relevance_score": self.relevance_score
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'RenderedBullet':
+        return cls(
+            text=data.get("text", ""),
+            source_fact_ids=data.get("source_fact_ids", []),
+            relevance_score=data.get("relevance_score", 0.0)
+        )
+
 
 @dataclass
 class RenderedProject:
