@@ -16,12 +16,15 @@ if sys.platform == "win32":
 
 from arb.core.paths import get_user_data_dir, get_bundled_data_dir
 
-# Load environment variables from the user data dir if it exists there
-env_path = get_user_data_dir() / ".env"
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
-else:
-    load_dotenv()
+# 1. Load global configuration from user data dir
+global_env_path = get_user_data_dir() / ".env"
+if global_env_path.exists():
+    load_dotenv(dotenv_path=global_env_path)
+
+# 2. Override with local project .env if it exists (for developers)
+local_env_path = Path.cwd() / ".env"
+if local_env_path.exists():
+    load_dotenv(dotenv_path=local_env_path, override=True)
 
 def init_services(args):
     """Initializes and returns the BuildPipeline and related dependencies."""
@@ -251,6 +254,8 @@ def handle_doctor(args):
         print("✓ GitHub token found")
     else:
         print("! GitHub token not set (public repos only, rate limits apply)")
+        
+    print(f"  (Keys loaded from: {local_env_path if local_env_path.exists() else global_env_path})")
         
     # Compiler
     import shutil

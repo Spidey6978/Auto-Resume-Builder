@@ -35,11 +35,17 @@ def classify_exception(exc: Exception) -> Tuple[str, Optional[int]]:
     for kw in fatal_keywords:
         if kw in err_str:
             return "fatal", retry_after
+            
+    # Hard Quota Exhaustion
+    if "resource_exhausted" in err_str or "quota" in err_str:
+        # If it doesn't explicitly mention 'per minute' or 'rate limit', assume hard daily quota
+        if "per minute" not in err_str and "rate limit" not in err_str:
+            return "fatal", retry_after
 
     # Transient error signatures
     transient_keywords = [
-        "429", "500", "502", "503", "504", "resource_exhausted",
-        "quota", "rate limit", "deadline_exceeded", "unavailable", "temporarily"
+        "429", "500", "502", "503", "504",
+        "rate limit", "deadline_exceeded", "unavailable", "temporarily"
     ]
     for kw in transient_keywords:
         if kw in err_str:
@@ -64,6 +70,9 @@ class AIGateway:
         Generic text generation with rate limiting, retries, and fallback cascade.
         Does NOT handle caching (callers should handle their own cache semantics).
         """
+        if mock_ai:
+            return f"Mocked AI response for {model_hint}\n- Mock bullet 1\n- Mock bullet 2"
+
         preferred_order = [
             "gemini-2.5-flash",
             "gemini-1.5-flash",

@@ -3,7 +3,7 @@ import hashlib
 import logging
 from typing import List
 from arb.models.domain import CanonicalProfile, TargetContext, Project, Fact
-from arb.models.plan import ResumePlan, PlannedProject, PlannedFact
+from arb.models.plan import ResumePlan, PlannedProject, PlannedFact, PlannedExperience
 from arb.core.ai_gateway import AIGateway
 from arb.core.cache import CacheManager
 from arb.core.knowledge.evaluator import PolicyEvaluator
@@ -73,7 +73,7 @@ class TargetEngine:
             if self.ranker:
                 scored_facts, status = self.ranker.rank_facts(proj, target, plan.policies, mock_ai=mock_ai)
             else:
-                from core.fact_ranker import ScoredFact
+                from arb.core.fact_ranker import ScoredFact
                 # Fallback if no ranker provided
                 scored_facts, status = [ScoredFact(fact=f, score=0.0, reasons=["fallback_unranked"]) for f in proj.facts[:5]], "fallback_unranked"
             

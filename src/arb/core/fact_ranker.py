@@ -172,10 +172,11 @@ Example: ["fact_1", "fact_3", "fact_2"]
                 return selected_facts[:max_facts], "ai_reranked"
                 
             # Parsing failed fallback
+            logger.warning("FactRanker: AI semantic reranking returned empty or invalid data. Falling back to deterministic ranker.")
             return scored_facts[:max_facts], "fallback_deterministic"
             
         except Exception as e:
-            logger.error(f"Semantic reranking failed: {e}")
+            logger.warning(f"FactRanker: Semantic reranking failed with exception: {e}. Falling back to deterministic ranker.")
             return scored_facts[:max_facts], "fallback_deterministic"
 
     def rank_facts(self, entity: Union[Project, ExperienceItem], target: TargetContext, policies: ResolvedPolicies, mock_ai: bool = False, max_facts: int = 5) -> Tuple[List[ScoredFact], str]:

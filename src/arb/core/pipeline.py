@@ -21,7 +21,7 @@ from arb.core.document_segmenter import DocumentSegmenter
 from arb.core.evidence_extractor import EvidenceExtractor
 from arb.core.profile_merger import ProfileMerger
 from arb.core.source_manager import SourceManager
-from arb.models.domain import SourceRecord, SourceRef, EvidenceItem
+from arb.models.domain import SourceRecord, SourceRef, EvidenceItem, SourceResult
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +122,32 @@ class BuildPipeline:
                 segmented_evidence = self.document_segmenter.segment(source_result.evidence)
                 for ev in segmented_evidence:
                     extraction = self.evidence_extractor.extract(ev, mock_ai=mock_ai)
+                    
+                    # Also extract facts for each entity found
+                    fact_source = SourceResult(source_id=source_result.source_id, source_type=source_result.source_type, evidence=[ev])
+                    
+                    for proj in extraction.projects:
+                        f_res = self.extractor.extract(fact_source, proj.id, mock_ai=mock_ai)
+                        if f_res.status == "ai_error":
+                            raise RuntimeError(f"AI Fact Extraction failed for {proj.id}: {f_res.error}")
+                        elif f_res.status == "invalid_response":
+                            logger.warning(f"AI returned invalid JSON for {proj.id}: {f_res.error}")
+                        proj.facts.extend(f_res.facts)
+                    for exp in extraction.experience:
+                        f_res = self.extractor.extract(fact_source, exp.id, mock_ai=mock_ai)
+                        if f_res.status == "ai_error":
+                            raise RuntimeError(f"AI Fact Extraction failed for {exp.id}: {f_res.error}")
+                        elif f_res.status == "invalid_response":
+                            logger.warning(f"AI returned invalid JSON for {exp.id}: {f_res.error}")
+                        exp.facts.extend(f_res.facts)
+                    for awd in extraction.awards:
+                        f_res = self.extractor.extract(fact_source, awd.id, mock_ai=mock_ai)
+                        if f_res.status == "ai_error":
+                            raise RuntimeError(f"AI Fact Extraction failed for {awd.id}: {f_res.error}")
+                        elif f_res.status == "invalid_response":
+                            logger.warning(f"AI returned invalid JSON for {awd.id}: {f_res.error}")
+                        awd.facts.extend(f_res.facts)
+                        
                     merger.merge(extraction)
                     
             elif source_type == "github":
@@ -150,6 +176,16 @@ class BuildPipeline:
                 )
 
                 extraction = self.evidence_extractor.extract(repo_evidence, mock_ai=mock_ai)
+                
+                # Extract facts from the original source_result (which contains the README)
+                for proj in extraction.projects:
+                    f_res = self.extractor.extract(source_result, proj.id, mock_ai=mock_ai)
+                    if f_res.status == "ai_error":
+                        raise RuntimeError(f"AI Fact Extraction failed for {proj.id}: {f_res.error}")
+                    elif f_res.status == "invalid_response":
+                        logger.warning(f"AI returned invalid JSON for {proj.id}: {f_res.error}")
+                    proj.facts.extend(f_res.facts)
+                    
                 merger.merge(extraction)
 
             elif source_type in ("manual", "linkedin"):
