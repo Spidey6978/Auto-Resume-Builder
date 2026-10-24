@@ -456,10 +456,69 @@ def handle_profile(args):
     if args.profile_cmd == "path":
         print(prof)
     elif args.profile_cmd == "show":
-        if prof.exists():
+        if not prof.exists():
+            print("Profile not found. Run 'arb init' to create one.")
+            return
+
+        if getattr(args, "raw", False):
             print(prof.read_text(encoding="utf-8"))
-        else:
-            print("Profile not found.")
+            return
+
+        from arb.models.domain import CanonicalProfile
+        try:
+            profile = CanonicalProfile.from_yaml(str(prof))
+        except Exception as e:
+            print(f"Failed to parse profile: {e}")
+            print(prof.read_text(encoding="utf-8"))
+            return
+
+        p = profile.personal
+        print("\n👤 Canonical Profile Summary")
+        print("-" * 50)
+        print(f"Name        : {p.name or 'Not set'}")
+        if p.email: print(f"Email       : {p.email}")
+        if p.phone: print(f"Phone       : {p.phone}")
+        if p.location: print(f"Location    : {p.location}")
+        if p.github: print(f"GitHub      : {p.github}")
+        if p.linkedin: print(f"LinkedIn    : {p.linkedin}")
+        if p.website: print(f"Website     : {p.website}")
+
+        if profile.education:
+            print(f"\n🎓 Education ({len(profile.education)})")
+            for edu in profile.education:
+                dates = f" ({edu.start_date or ''} – {edu.end_date or ''})".strip()
+                print(f"  • {edu.institution} — {edu.degree}{dates}")
+
+        if profile.experience:
+            print(f"\n💼 Experience ({len(profile.experience)})")
+            for exp in profile.experience:
+                dates = f" ({exp.start_date or ''} – {exp.end_date or ''})".strip()
+                fact_count = len(exp.facts)
+                print(f"  • {exp.organization} — {exp.title}{dates} [{fact_count} facts]")
+
+        if profile.projects:
+            print(f"\n🚀 Projects ({len(profile.projects)})")
+            for proj in profile.projects:
+                tech = f" [{', '.join(proj.tech_stack[:4])}]" if proj.tech_stack else ""
+                fact_count = len(proj.facts)
+                print(f"  • {proj.name}{tech} [{fact_count} facts]")
+
+        if profile.awards:
+            print(f"\n🏆 Awards ({len(profile.awards)})")
+            for awd in profile.awards:
+                year_str = f" ({awd.year})" if awd.year else ""
+                print(f"  • {awd.title}{year_str}")
+
+        if profile.skills:
+            total_skills = sum(len(v) for v in profile.skills.values())
+            print(f"\n🛠️  Skills ({total_skills} across {len(profile.skills)} categories)")
+            for cat, items in profile.skills.items():
+                print(f"  • {cat}: {', '.join(items[:8])}{'...' if len(items) > 8 else ''}")
+
+        total_facts = sum(len(p.facts) for p in profile.projects) + sum(len(e.facts) for e in profile.experience)
+        print("-" * 50)
+        print(f"Total Atomic Evidence Facts: {total_facts}")
+        print("(Use 'arb profile show --raw' for full YAML, or 'arb profile edit' to modify)\n")
     elif args.profile_cmd == "edit":
         if not prof.exists():
             print("Profile not found.")
@@ -612,7 +671,8 @@ def main():
     # arb profile
     profile_parser = subparsers.add_parser("profile", help="Manage canonical profile")
     profile_sub = profile_parser.add_subparsers(dest="profile_cmd", required=True)
-    profile_sub.add_parser("show", help="Print the canonical profile")
+    show_p = profile_sub.add_parser("show", help="Print summary of canonical profile")
+    show_p.add_argument("--raw", action="store_true", help="Print full raw YAML")
     profile_sub.add_parser("edit", help="Open canonical profile in default editor")
     profile_sub.add_parser("path", help="Print path to canonical profile")
 
