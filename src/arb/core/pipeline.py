@@ -396,6 +396,7 @@ class BuildPipeline:
             except Exception as e:
                 logger.warning(f"Failed to write audit files: {e}")
 
+            compilation_result = None
             for iteration in range(max_iterations):
                 logger.info(f"Build Pipeline: Compiling iteration {iteration + 1} (Target pages: {allowed_pages})")
                 compilation_result = self.compiler.compile_resume(document, output_dir=output_dir)
@@ -416,7 +417,20 @@ class BuildPipeline:
                     logger.warning("Build Pipeline: Could not find any bullets to trim. Stopping overflow resolution.")
                     break
                     
-            return BuildResult(True, compilation_result.pdf_path, f"Compiled successfully, but may exceed {allowed_pages} pages after max trimming iterations.", audit_report=audit_report, audit_path=audit_md_path)
+            # If the last iteration trimmed a bullet, do one final compilation to verify the PDF reflects the trimmed state
+            if compilation_result and compilation_result.page_count > allowed_pages:
+                compilation_result = self.compiler.compile_resume(document, output_dir=output_dir)
+                if compilation_result.success and compilation_result.page_count <= allowed_pages:
+                    return BuildResult(True, compilation_result.pdf_path, "Resume compiled successfully after final trim", audit_report=audit_report, audit_path=audit_md_path)
+
+            final_pages = compilation_result.page_count if compilation_result else 0
+            return BuildResult(
+                False,
+                compilation_result.pdf_path if compilation_result else None,
+                f"Page budget exceeded: resume generated {final_pages} pages (target limit: {allowed_pages}). Please trim content or increase --pages.",
+                audit_report=audit_report,
+                audit_path=audit_md_path
+            )
             
         except Exception as e:
             logger.error(f"Compilation failed: {e}", exc_info=True)

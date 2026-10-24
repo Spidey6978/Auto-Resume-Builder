@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 
 from arb.models.presentation import ResumeDocument, RenderedBullet
@@ -81,38 +81,50 @@ class EvidenceAuditor:
     """
 
     def audit(self, document: ResumeDocument, profile: CanonicalProfile, model_name: str = "") -> AuditReport:
-        # 1. Build comprehensive fact lookup from profile
-        fact_map: Dict[str, Fact] = {}
+        # 1. Build entity-specific fact lookup maps and a global fact map
+        global_fact_map: Dict[str, Tuple[str, Fact]] = {} # fact_id -> (entity_name, Fact)
+        project_fact_maps: Dict[str, Dict[str, Fact]] = {}
+        experience_fact_maps: Dict[str, Dict[str, Fact]] = {}
 
         for proj in profile.projects:
+            p_map = {f.id: f for f in proj.facts}
+            project_fact_maps[proj.id] = p_map
+            project_fact_maps[proj.name.lower()] = p_map
             for f in proj.facts:
-                fact_map[f.id] = f
+                global_fact_map[f.id] = (proj.name, f)
 
         for exp in profile.experience:
+            e_map = {f.id: f for f in exp.facts}
+            experience_fact_maps[exp.id] = e_map
+            experience_fact_maps[exp.organization.lower()] = e_map
             for f in exp.facts:
-                fact_map[f.id] = f
+                global_fact_map[f.id] = (exp.organization, f)
 
         audited_items: List[BulletAudit] = []
 
-        # 2. Audit Project bullets
+        # 2. Audit Project bullets scoped to the specific project
         for proj in document.projects:
+            scoped_map = project_fact_maps.get(proj.id) or project_fact_maps.get(proj.name.lower(), {})
             for bullet in proj.bullets:
                 audit_item = self._audit_single_bullet(
                     bullet=bullet,
                     entity_type="project",
                     entity_name=proj.name,
-                    fact_map=fact_map
+                    entity_fact_map=scoped_map,
+                    global_fact_map=global_fact_map
                 )
                 audited_items.append(audit_item)
 
-        # 3. Audit Experience bullets
+        # 3. Audit Experience bullets scoped to the specific experience
         for exp in document.experience:
+            scoped_map = experience_fact_maps.get(exp.id) or experience_fact_maps.get(exp.organization.lower(), {})
             for bullet in exp.bullets:
                 audit_item = self._audit_single_bullet(
                     bullet=bullet,
                     entity_type="experience",
                     entity_name=exp.organization,
-                    fact_map=fact_map
+                    entity_fact_map=scoped_map,
+                    global_fact_map=global_fact_map
                 )
                 audited_items.append(audit_item)
 
@@ -135,7 +147,8 @@ class EvidenceAuditor:
         bullet: RenderedBullet,
         entity_type: str,
         entity_name: str,
-        fact_map: Dict[str, Fact]
+        entity_fact_map: Dict[str, Fact],
+        global_fact_map: Dict[str, Tuple[str, Fact]]
     ) -> BulletAudit:
         if not bullet.source_fact_ids:
             return BulletAudit(
@@ -149,11 +162,12 @@ class EvidenceAuditor:
             )
 
         supporting_facts: List[Dict[str, Any]] = []
+        cross_entity_mismatches: List[str] = []
         missing_ids: List[str] = []
 
         for fid in bullet.source_fact_ids:
-            if fid in fact_map:
-                f = fact_map[fid]
+            if fid in entity_fact_map:
+                f = entity_fact_map[fid]
                 supporting_facts.append({
                     "id": f.id,
                     "text": f.text,
@@ -161,8 +175,22 @@ class EvidenceAuditor:
                     "metric": f.metric,
                     "source_refs": [s.to_dict() if hasattr(s, "to_dict") else dict(s) for s in f.source_refs]
                 })
+            elif fid in global_fact_map:
+                owner_entity, _ = global_fact_map[fid]
+                cross_entity_mismatches.append(f"{fid} (belongs to '{owner_entity}')")
             else:
                 missing_ids.append(fid)
+
+        if cross_entity_mismatches:
+            return BulletAudit(
+                entity_type=entity_type,
+                entity_name=entity_name,
+                bullet_text=bullet.text,
+                is_grounded=False,
+                source_fact_ids=bullet.source_fact_ids,
+                supporting_facts=supporting_facts,
+                warning=f"Entity citation mismatch: facts {cross_entity_mismatches} do not belong to '{entity_name}'."
+            )
 
         if missing_ids:
             return BulletAudit(

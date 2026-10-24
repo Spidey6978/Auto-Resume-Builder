@@ -87,3 +87,30 @@ def test_auditor_detects_nonexistent_fact_id():
 
     assert report.items[0].is_grounded is False
     assert "Invalid fact citation" in report.items[0].warning
+
+
+def test_auditor_detects_cross_entity_citation_mismatch():
+    # Fact belongs to Project B, but Project A cites it
+    fact_b = Fact(id="fact_b", text="Built backend in Rust", fact_type="general")
+    proj_a = Project(id="p_a", name="Project A", facts=[])
+    proj_b = Project(id="p_b", name="Project B", facts=[fact_b])
+    profile = CanonicalProfile(projects=[proj_a, proj_b])
+
+    # Bullet belongs to Project A, but cites fact_b
+    bullet = RenderedBullet(text="Built backend in Rust", source_fact_ids=["fact_b"])
+    rendered_a = RenderedProject(id="p_a", name="Project A", link=None, tech_stack=["Rust"], bullets=[bullet])
+    document = ResumeDocument(
+        personal=None,
+        education=[],
+        experience=[],
+        awards=[],
+        projects=[rendered_a],
+        skills={}
+    )
+
+    auditor = EvidenceAuditor()
+    report = auditor.audit(document, profile)
+
+    assert report.groundedness_score == 0.0
+    assert report.items[0].is_grounded is False
+    assert "Entity citation mismatch" in report.items[0].warning

@@ -393,7 +393,20 @@ class AIGateway:
 
         provider, route_desc = self.resolve_provider()
         logger.debug(f"Routing '{model_hint}' inference to: {route_desc}")
-        return provider.generate_text(prompt, model_hint=model_hint)
+        try:
+            return provider.generate_text(prompt, model_hint=model_hint)
+        except Exception as e:
+            if (
+                self.config.mode.lower() == "auto"
+                and provider != self.cloud_provider
+                and self.config.cloud_fallback
+                and self.cloud_provider.is_available()
+            ):
+                logger.warning(
+                    f"Local inference failed ({e}). Retrying with cloud fallback provider ({self.config.cloud_model})..."
+                )
+                return self.cloud_provider.generate_text(prompt, model_hint=model_hint)
+            raise
 
 
 class MockAIGateway:
