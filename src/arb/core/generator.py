@@ -144,6 +144,16 @@ class ContentGenerator:
             return GenerationResult(bullets=[], status=GenerationStatus.AI_ERROR, error=str(e))
 
         if not parsed_array:
+            import re
+            lines = [
+                re.sub(r'^[\*\-\•]\s*', '', line).strip()
+                for line in response_text.strip().splitlines()
+                if line.strip().startswith(("-", "*", "•"))
+            ]
+            if lines:
+                parsed_array = [{"text": l, "source_fact_ids": fact_ids} for l in lines]
+
+        if not parsed_array:
             return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty or invalid JSON response")
 
         # Map to RenderedBullet
@@ -245,6 +255,16 @@ class ContentGenerator:
                 parsed_array = []
         except Exception as e:
             return GenerationResult(bullets=[], status=GenerationStatus.AI_ERROR, error=str(e))
+
+        if not parsed_array:
+            import re
+            lines = [
+                re.sub(r'^[\*\-\•]\s*', '', line).strip()
+                for line in response_text.strip().splitlines()
+                if line.strip().startswith(("-", "*", "•"))
+            ]
+            if lines:
+                parsed_array = [{"text": l, "source_fact_ids": fact_ids} for l in lines]
 
         if not parsed_array:
             return GenerationResult(bullets=[], status=GenerationStatus.INVALID_RESPONSE, error="Empty or invalid JSON response")

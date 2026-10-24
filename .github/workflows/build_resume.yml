@@ -34,18 +34,19 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate LaTeX file via Python
+      - name: Generate and Compile Resume
         env:
-          # Pulls your Gemini key from GitHub Secrets
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 
-          # Built-in GitHub token to prevent API rate limits
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}     
         run: |
           mkdir -p build
-          arb build --mock-ai
-
-      - name: Compile PDF with Tectonic
-        run: tectonic build/resume.tex
+          if [ -f data/canonical_profile.yaml ]; then
+            arb init --non-interactive --profile data/canonical_profile.yaml
+          else
+            echo -e "personal:\n  name: 'Veer Gopani'\n  email: 'veergopani70@gmail.com'\n  github: 'https://github.com/Spidey6978'\nexperience: []\nprojects: []\neducation: []\nskills: []" > build_fixture.yaml
+            arb init --non-interactive --profile build_fixture.yaml
+          fi
+          arb build --target backend --mock-ai --output build/resume.pdf
 
       - name: Upload PDF Artifact
         uses: actions/upload-artifact@v4

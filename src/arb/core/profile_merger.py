@@ -27,14 +27,17 @@ class ProfileMerger:
         if not inc_facts:
             return match_facts
             
+        def _get_ref_id(ref):
+            return ref if isinstance(ref, str) else getattr(ref, "id", str(ref))
+
         incoming_sources = set()
         for f in inc_facts:
             for ref in f.source_refs:
-                incoming_sources.add(ref.id)
+                incoming_sources.add(_get_ref_id(ref))
                 
         retained_facts = []
         for f in match_facts:
-            f_sources = {ref.id for ref in f.source_refs}
+            f_sources = {_get_ref_id(ref) for ref in f.source_refs}
             if not f_sources.intersection(incoming_sources):
                 retained_facts.append(f)
                 

@@ -56,6 +56,13 @@ class FactExtractor:
 
     def _clean_json_response(self, text: str) -> str:
         text = text.strip()
+        # Find JSON array boundaries first
+        start_bracket = text.find('[')
+        end_bracket = text.rfind(']')
+        if start_bracket != -1 and end_bracket != -1 and end_bracket > start_bracket:
+            return text[start_bracket:end_bracket + 1]
+
+        # Strip markdown fences as fallback
         if text.startswith("```"):
             lines = text.splitlines()
             if lines and lines[0].strip().startswith("```"):

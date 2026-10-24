@@ -38,6 +38,8 @@ class EntityMatcher:
         best_match = None
         
         for canonical in canonical_list:
+            if getattr(incoming, "id", None) and getattr(canonical, "id", None) and incoming.id == canonical.id:
+                return MatchOutcome.MATCH, canonical
             org_sim = EntityMatcher._similarity(incoming.organization, canonical.organization)
             title_sim = EntityMatcher._similarity(incoming.title, canonical.title)
             date_sim = EntityMatcher._date_similarity(incoming.start_date, incoming.end_date, canonical.start_date, canonical.end_date)
@@ -60,6 +62,8 @@ class EntityMatcher:
         best_match = None
         
         for canonical in canonical_list:
+            if getattr(incoming, "id", None) and getattr(canonical, "id", None) and incoming.id == canonical.id:
+                return MatchOutcome.MATCH, canonical
             inst_sim = EntityMatcher._similarity(incoming.institution, canonical.institution)
             deg_sim = EntityMatcher._similarity(incoming.degree, canonical.degree)
             date_sim = EntityMatcher._date_similarity(incoming.start_date, incoming.end_date, canonical.start_date, canonical.end_date)
@@ -82,6 +86,8 @@ class EntityMatcher:
         best_match = None
         
         for canonical in canonical_list:
+            if getattr(incoming, "id", None) and getattr(canonical, "id", None) and incoming.id == canonical.id:
+                return MatchOutcome.MATCH, canonical
             name_sim = EntityMatcher._similarity(incoming.name, canonical.name)
             
             score = name_sim
@@ -102,6 +108,8 @@ class EntityMatcher:
         best_match = None
         
         for canonical in canonical_list:
+            if getattr(incoming, "id", None) and getattr(canonical, "id", None) and incoming.id == canonical.id:
+                return MatchOutcome.MATCH, canonical
             title_sim = EntityMatcher._similarity(incoming.title, canonical.title)
             
             score = title_sim

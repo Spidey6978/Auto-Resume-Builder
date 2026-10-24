@@ -39,3 +39,30 @@ class ProfileManager:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
             raise RuntimeError(f"Failed to save profile: {e}")
+
+    def upsert_project(self, source_id: str, raw_name: str, link: str = None, normalized_languages: list = None, extraction_result = None) -> None:
+        """
+        Upserts a project and its extracted facts into the canonical profile.
+        Safely bridges with ProfileMerger and saves atomically.
+        """
+        from arb.models.domain import Project
+        from arb.core.profile_merger import ProfileMerger
+        from arb.core.evidence_extractor import EntityExtractionResult
+        from arb.core.fact_extractor import ExtractionStatus
+
+        if extraction_result is not None:
+            if hasattr(extraction_result, "status") and extraction_result.status != ExtractionStatus.SUCCESS:
+                logger.warning("Extraction result status indicates failure; skipping upsert_project to avoid corruption.")
+                return
+
+        facts = getattr(extraction_result, "facts", []) if extraction_result else []
+        incoming_proj = Project(
+            id=source_id,
+            name=raw_name,
+            link=link,
+            tech_stack=normalized_languages or [],
+            facts=facts
+        )
+        merger = ProfileMerger(self.profile)
+        merger.merge(EntityExtractionResult(projects=[incoming_proj]))
+        self.save()

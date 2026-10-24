@@ -1,3 +1,9 @@
+# [LEGACY / REFERENCE ONLY]
+# This static_profile.yaml is retained for backward reference only.
+# Auto-Resume-Builder (ARB) dynamically manages professional knowledge inside
+# your canonical profile at %LOCALAPPDATA%\arb\auto-resume-builder\canonical_profile.yaml (or ~/.local/share).
+# This file is not read by ARB runtime.
+
 github_username: "Spidey6978"
 
 showcase_repos:

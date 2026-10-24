@@ -1,7 +1,7 @@
 import os
 import uuid
 import logging
-from typing import Optional
+from typing import Optional, Any
 from dataclasses import dataclass
 
 from arb.core.profile_manager import ProfileManager
@@ -35,6 +35,8 @@ class BuildResult:
     success: bool
     pdf_path: Optional[str]
     message: str
+    audit_report: Optional[Any] = None
+    audit_path: Optional[str] = None
 
 class BuildPipeline:
     """
@@ -367,17 +369,44 @@ class BuildPipeline:
             max_iterations = 5
             allowed_pages = document.page_policy.get("pages", 1) if document.page_policy else 1
             
+            # Run Proof Mode evidence audit
+            from arb.core.auditor import EvidenceAuditor
+            auditor = EvidenceAuditor()
+            active_model = "Gemma 4"
+            try:
+                if hasattr(self.generator.ai, "config"):
+                    active_model = self.generator.ai.config.local_model if self.generator.ai.config.mode == "local" else self.generator.ai.config.cloud_model
+            except Exception:
+                pass
+
+            audit_report = auditor.audit(
+                document=document,
+                profile=self.profile_manager.profile,
+                model_name=active_model
+            )
+            audit_md_path = os.path.join(output_dir, "evidence_audit.md")
+            audit_json_path = os.path.join(output_dir, "evidence_audit.json")
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+                with open(audit_md_path, "w", encoding="utf-8") as f:
+                    f.write(audit_report.to_markdown())
+                with open(audit_json_path, "w", encoding="utf-8") as f:
+                    import json
+                    json.dump(audit_report.to_dict(), f, indent=2)
+            except Exception as e:
+                logger.warning(f"Failed to write audit files: {e}")
+
             for iteration in range(max_iterations):
                 logger.info(f"Build Pipeline: Compiling iteration {iteration + 1} (Target pages: {allowed_pages})")
                 compilation_result = self.compiler.compile_resume(document, output_dir=output_dir)
                 
                 if not compilation_result.success:
-                    return BuildResult(False, None, "LaTeX compilation failed.")
+                    return BuildResult(False, None, "LaTeX compilation failed.", audit_report=audit_report, audit_path=audit_md_path)
                     
                 actual_pages = compilation_result.page_count
                 if actual_pages <= allowed_pages:
                     logger.info(f"Build Pipeline: Document fits in {actual_pages} pages. Done.")
-                    return BuildResult(True, compilation_result.pdf_path, "Resume compiled successfully")
+                    return BuildResult(True, compilation_result.pdf_path, "Resume compiled successfully", audit_report=audit_report, audit_path=audit_md_path)
                     
                 logger.warning(f"Build Pipeline: Overflow detected ({actual_pages} > {allowed_pages} pages). Attempting to trim...")
                 
@@ -387,7 +416,7 @@ class BuildPipeline:
                     logger.warning("Build Pipeline: Could not find any bullets to trim. Stopping overflow resolution.")
                     break
                     
-            return BuildResult(True, compilation_result.pdf_path, f"Compiled successfully, but may exceed {allowed_pages} pages after max trimming iterations.")
+            return BuildResult(True, compilation_result.pdf_path, f"Compiled successfully, but may exceed {allowed_pages} pages after max trimming iterations.", audit_report=audit_report, audit_path=audit_md_path)
             
         except Exception as e:
             logger.error(f"Compilation failed: {e}", exc_info=True)

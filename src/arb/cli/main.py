@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 
+logger = logging.getLogger(__name__)
+
 # Ensure UTF-8 stdout printing on Windows terminals
 if sys.platform == "win32":
     try:
@@ -56,12 +58,16 @@ def init_services(args):
     if mock_ai:
         ai_gateway = MockAIGateway()
     else:
+        from arb.core.ai_config import load_ai_config
+        ai_config = load_ai_config()
         gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-        if not gemini_api_key:
-            print("  [!] Error: GEMINI_API_KEY not set in environment or .env file.")
-            print("      Run 'arb init' to set up your environment.")
+        ai_gateway = AIGateway(api_key=gemini_api_key, config=ai_config)
+        try:
+            _, route_desc = ai_gateway.resolve_provider()
+            logger.info(f"AI backend routed to: {route_desc}")
+        except Exception as e:
+            print(f"  [!] AI Backend Error: {e}")
             sys.exit(1)
-        ai_gateway = AIGateway(api_key=gemini_api_key)
     
     github_token = os.getenv("GITHUB_TOKEN")
     github_adapter = GitHubAdapter(token=github_token, cache_manager=cache_mgr)
@@ -82,13 +88,27 @@ def init_services(args):
     extractor = FactExtractor(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     generator = ContentGenerator(ai_gateway=ai_gateway, cache_manager=cache_mgr)
     
-    canonical_path = get_user_data_dir() / "canonical_profile.yaml"
-    if not canonical_path.exists():
-        print(f"  [!] Canonical profile not found at {canonical_path}")
-        print("      Run 'arb init' to set up your profile.")
-        sys.exit(1)
-        
-    profile_manager = ProfileManager(str(canonical_path))
+    custom_profile = getattr(args, "profile", None)
+    if custom_profile:
+        profile_file = Path(custom_profile)
+        if not profile_file.exists():
+            print(f"  [!] Specified profile not found at {profile_file}")
+            sys.exit(1)
+        profile_manager = ProfileManager(str(profile_file))
+    else:
+        canonical_path = get_user_data_dir() / "canonical_profile.yaml"
+        if not canonical_path.exists():
+            legacy_repo_profile = Path.cwd() / "data" / "canonical_profile.yaml"
+            if legacy_repo_profile.exists():
+                print(f"  [*] Auto-importing repository profile from {legacy_repo_profile}")
+                import shutil
+                get_user_data_dir().mkdir(parents=True, exist_ok=True)
+                shutil.copy(legacy_repo_profile, canonical_path)
+            else:
+                print(f"  [!] Canonical profile not found at {canonical_path}")
+                print("      Run 'arb init' to set up your profile.")
+                sys.exit(1)
+        profile_manager = ProfileManager(str(canonical_path))
     
     templates_dir = get_bundled_data_dir() / "templates"
     
@@ -243,13 +263,29 @@ def handle_doctor(args):
     else:
         print("✗ Canonical profile missing (run 'arb init')")
         
-    # Keys
+    # AI Backend & Models
+    from arb.core.ai_config import load_ai_config
+    from arb.core.ai_gateway import AIGateway
+    ai_gw = AIGateway(config=load_ai_config(), api_key=os.getenv("GEMINI_API_KEY", ""))
+    ai_status = ai_gw.get_status()
+
+    if ai_status["local_online"]:
+        if ai_status["local_model_ready"]:
+            print(f"✓ Local AI: Ollama online with '{ai_status['local_model']}' ready")
+            checks["ai"] = True
+        else:
+            print(f"! Local AI: Ollama online, but model '{ai_status['local_model']}' not pulled (run 'arb model setup')")
+    else:
+        print(f"! Local AI: Ollama offline at {ai_status['local_url']}")
+
     if os.getenv("GEMINI_API_KEY"):
-        print("✓ GEMINI_API_KEY found")
+        print("✓ Cloud AI: GEMINI_API_KEY found (BYOK)")
         checks["ai"] = True
     else:
-        print("✗ GEMINI_API_KEY not set")
-        
+        print("! Cloud AI: GEMINI_API_KEY not set")
+
+    print(f"  → Active route: {ai_status['active_route']}")
+
     if os.getenv("GITHUB_TOKEN"):
         print("✓ GitHub token found")
     else:
@@ -293,6 +329,22 @@ def handle_build(args):
             import shutil
             shutil.copy(result.pdf_path, args.output)
             print(f"  📄 Copied to: {args.output}")
+
+        if result.audit_report:
+            print("\n🛡️  Proof Mode — Evidence Grounding Audit")
+            print("-" * 50)
+            score = result.audit_report.groundedness_score
+            grounded = result.audit_report.grounded_bullets
+            total = result.audit_report.total_bullets
+            status_icon = "✓" if score == 100.0 else "!"
+            print(f"  {status_icon} Verified Grounded Claims : {grounded}/{total} ({score:.1f}%)")
+            if result.audit_report.ungrounded_bullets > 0:
+                print(f"  ⚠️  Ungrounded Claims        : {result.audit_report.ungrounded_bullets}")
+            print(f"  📄 Full Audit Report        : {result.audit_path}")
+            print("-" * 50)
+            
+            if getattr(args, "proof", False):
+                print("\n" + result.audit_report.to_markdown() + "\n")
     else:
         print(f"  [!] {result.message}")
         
@@ -444,6 +496,85 @@ def handle_cache(args):
         CacheManager().clear()
 
 
+def handle_model(args):
+    from arb.core.ai_config import load_ai_config, save_ai_config
+    from arb.core.ai_gateway import AIGateway
+    import time
+    import shutil
+
+    config = load_ai_config()
+    gw = AIGateway(config=config)
+
+    if args.model_cmd == "status":
+        status = gw.get_status()
+        print("\n🤖 ARB Model & AI Configuration")
+        print("-" * 50)
+        print(f"Routing Mode        : {status['mode']} (auto: prefer local, fallback to cloud)")
+        print(f"Local Runtime       : {status['local_provider'].title()} ({status['local_url']})")
+        print(f"  Ollama Daemon     : {'🟢 Online' if status['local_online'] else '🔴 Offline'}")
+        models_str = ", ".join(status['local_installed_models']) if status['local_installed_models'] else "None"
+        print(f"  Installed Models  : {models_str}")
+        model_state = '✅ Ready' if status['local_model_ready'] else '⚠️ Not downloaded'
+        print(f"  Local Target Model: {status['local_model']} ({model_state})")
+        print(f"Cloud Provider      : {status['cloud_provider'].title()} (BYOK)")
+        print(f"  Cloud Target Model: {status['cloud_model']}")
+        print(f"  API Key           : {'✓ Configured' if status['cloud_ready'] else '✗ Missing'}")
+        print(f"  Cloud Fallback    : {'Enabled' if status['cloud_fallback'] else 'Disabled'}")
+        print("-" * 50)
+        print(f"Active Resolution   : {status['active_route']}\n")
+
+    elif args.model_cmd == "use":
+        config.local_model = args.model_name
+        save_ai_config(config)
+        print(f"✓ Configured local model set to: {args.model_name}")
+
+    elif args.model_cmd == "mode":
+        if args.mode_name not in ("auto", "local", "cloud"):
+            print("Invalid mode. Choose from: auto, local, cloud")
+            return
+        config.mode = args.mode_name
+        save_ai_config(config)
+        print(f"✓ AI routing mode set to: {args.mode_name}")
+
+    elif args.model_cmd == "setup":
+        print("\n🛠️  ARB Local Model Setup (Ollama + Gemma)")
+        print("-" * 50)
+        status = gw.get_status()
+        ollama_bin = shutil.which("ollama")
+
+        if not ollama_bin:
+            print("1. Install Ollama:")
+            print("   winget install Ollama.Ollama")
+            print("   Or download installer from: https://ollama.com/download\n")
+
+        if not status["local_online"]:
+            print("2. Start the Ollama daemon:")
+            print("   In a terminal, run: ollama serve\n")
+        else:
+            print("✓ Ollama daemon is online and responsive.")
+
+        print(f"3. Pull Gemma model:")
+        print(f"   ollama pull {config.local_model}")
+        print(f"\nAfter pulling, verify with: arb model test\n")
+
+    elif args.model_cmd == "test":
+        print("\n🧪 Testing Active AI Route...")
+        status = gw.get_status()
+        print(f"Active Route: {status['active_route']}")
+        start_time = time.time()
+        try:
+            resp = gw.generate_text(
+                "Extract 1 resume bullet point for: Built a high-performance backend in Go with 99.99% uptime.",
+                model_hint="cli_test"
+            )
+            elapsed = time.time() - start_time
+            print(f"✓ Response received in {elapsed:.2f}s:")
+            print(f"----------------------------------------\n{resp.strip()}\n----------------------------------------")
+            print("AI route is fully operational.\n")
+        except Exception as e:
+            print(f"✗ Test failed: {e}\n")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="arb", description="Auto Resume Builder CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -463,6 +594,8 @@ def main():
     build_parser.add_argument("--pages", type=int, help="Target page count")
     build_parser.add_argument("--output", type=str, help="Output PDF path")
     build_parser.add_argument("--mock-ai", action="store_true", help="Use mock AI responses")
+    build_parser.add_argument("--proof", action="store_true", help="Display full Evidence Grounding Audit report")
+    build_parser.add_argument("--profile", type=str, help="Path to custom canonical profile")
     
     # arb source
     source_parser = subparsers.add_parser("source", help="Manage data sources")
@@ -494,6 +627,17 @@ def main():
     cache_parser = subparsers.add_parser("cache", help="Manage cache")
     cache_sub = cache_parser.add_subparsers(dest="cache_cmd", required=True)
     cache_sub.add_parser("clear", help="Clear SQLite cache")
+
+    # arb model
+    model_parser = subparsers.add_parser("model", help="Manage local and cloud AI models")
+    model_sub = model_parser.add_subparsers(dest="model_cmd", required=True)
+    model_sub.add_parser("status", help="Show active AI configuration and model availability")
+    use_p = model_sub.add_parser("use", help="Select active local model")
+    use_p.add_argument("model_name", help="Model identifier, e.g. gemma4:e2b or gemma2:2b")
+    mode_p = model_sub.add_parser("mode", help="Set routing mode (auto, local, cloud)")
+    mode_p.add_argument("mode_name", choices=["auto", "local", "cloud"], help="Routing mode")
+    model_sub.add_parser("setup", help="Guide and verify local Ollama + Gemma setup")
+    model_sub.add_parser("test", help="Test inference and latency on active AI route")
     
     args = parser.parse_args()
 
@@ -513,6 +657,8 @@ def main():
         handle_target(args)
     elif args.command == "cache":
         handle_cache(args)
+    elif args.command == "model":
+        handle_model(args)
 
 if __name__ == "__main__":
     main()

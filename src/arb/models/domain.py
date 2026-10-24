@@ -55,7 +55,17 @@ class Fact:
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
-        d["source_refs"] = [ref.to_dict() for ref in self.source_refs]
+        formatted_refs = []
+        for ref in self.source_refs:
+            if hasattr(ref, "to_dict"):
+                formatted_refs.append(ref.to_dict())
+            elif isinstance(ref, str):
+                formatted_refs.append(SourceRef.from_dict(ref).to_dict())
+            elif isinstance(ref, dict):
+                formatted_refs.append(ref)
+            else:
+                formatted_refs.append({"type": "unknown", "id": str(ref)})
+        d["source_refs"] = formatted_refs
         return d
 
     @classmethod
