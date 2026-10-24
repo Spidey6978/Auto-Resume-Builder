@@ -333,11 +333,13 @@ class CanonicalProfile:
     awards: List[AwardItem] = field(default_factory=list)
     projects: List[Project] = field(default_factory=list)
     skills: Dict[str, List[str]] = field(default_factory=dict)
+    summary: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "schema_version": self.schema_version,
             "personal": self.personal.to_dict(),
+            "summary": self.summary,
             "education": [e.to_dict() for e in self.education],
             "experience": [e.to_dict() for e in self.experience],
             "awards": [a.to_dict() for a in self.awards],
@@ -353,6 +355,7 @@ class CanonicalProfile:
         awards = [AwardItem.from_dict(a) for a in data.get("awards", [])]
         projects = [Project.from_dict(p) for p in data.get("projects", [])]
         skills = data.get("skills", data.get("technical_skills", {}))
+        summary = data.get("summary")
 
         # Normalize skills dict values to lists if they are stored as comma-separated strings
         normalized_skills = {}
@@ -366,6 +369,7 @@ class CanonicalProfile:
         return cls(
             schema_version=data.get("schema_version", 1),
             personal=personal,
+            summary=summary,
             education=education,
             experience=experience,
             awards=awards,

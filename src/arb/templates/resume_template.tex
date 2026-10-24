@@ -28,7 +28,7 @@
 % --- HEADER ---
 \begin{center}
     {\huge \textbf{\VAR{name}}} \\ \vspace{4pt}
-    \VAR{phone} | \href{mailto:\VAR{email}}{\VAR{email}} | \href{\VAR{github}}{GitHub} | \href{\VAR{linkedin}}{LinkedIn} | \VAR{location}
+    \VAR{phone} --- \href{mailto:\VAR{email}}{\VAR{email}} --- \href{\VAR{github}}{GitHub} --- \href{\VAR{linkedin}}{LinkedIn} --- \VAR{location}
 \end{center}
 \vspace{2pt}
 
@@ -85,8 +85,8 @@
 % --- PROJECTS ---
 \section*{Projects}
 \BLOCK{for proj in projects}
-\noindent \textbf{\VAR{proj.name}} | \textit{\VAR{proj.tech_stack}}
-\BLOCK{if proj.link and "http" in proj.link}\hfill \href{\VAR{proj.link}}{Link}\BLOCK{endif}
+\noindent \textbf{\VAR{proj.name}} --- \BLOCK{if proj.tech_stack is string}\textit{\VAR{proj.tech_stack}}\BLOCK{else}\textit{\VAR{proj.tech_stack|join(', ')}}\BLOCK{endif}
+\BLOCK{if proj.link and "http" in proj.link}\hfill \href{\VAR{proj.link}}{\BLOCK{if "github" in proj.link|lower}GitHub\BLOCK{else}Link\BLOCK{endif}}\BLOCK{endif}
 
 \BLOCK{if proj.bullets and proj.bullets|length > 0}
 \begin{itemize}[leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt]
@@ -103,7 +103,7 @@
 \section*{Technical Skills}
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt, parsep=0pt, topsep=2pt]
     \BLOCK{for skill_category, skill_list in skills.items()}
-    \item \textbf{\VAR{skill_category | escape_latex}}: \VAR{skill_list}
+    \item \textbf{\VAR{skill_category | escape_latex}}: \BLOCK{if skill_list is string}\VAR{skill_list}\BLOCK{else}\VAR{skill_list|join(', ')}\BLOCK{endif}
     \BLOCK{endfor}
 \end{itemize}
 

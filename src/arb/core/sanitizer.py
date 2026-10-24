@@ -32,16 +32,17 @@ def sanitize_data(data, key_name=None):
     """
     Recursively traverses dictionaries and lists to escape LaTeX characters in all strings.
     """
-    # Keys that should NEVER be sanitized because they act as raw URLs in \href{}
-    do_not_escape_keys = {'link', 'github', 'linkedin', 'email'}
+    # Keys that should NEVER be sanitized because they act as raw URLs or internal template identifiers
+    do_not_escape_keys = {'link', 'github', 'linkedin', 'email', 'section_order'}
+    if key_name in do_not_escape_keys:
+        return data
     
     if isinstance(data, dict):
         return {key: sanitize_data(value, key) for key, value in data.items()}
     elif isinstance(data, list):
         return [sanitize_data(item, key_name) for item in data]
     elif isinstance(data, str):
-        if key_name in do_not_escape_keys:
-            return data
         return escape_latex(data)
     else:
         return data
+

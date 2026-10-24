@@ -12,7 +12,7 @@ import hashlib
 import json
 from arb.adapters.registry import AdapterRegistry
 from arb.core.normalizer import normalize_languages
-from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward
+from arb.models.presentation import ResumeDocument, RenderedProject, RenderedExperience, RenderedAward, RenderedBullet
 from arb.core.target_engine import TargetEngine
 from arb.models.domain import TargetContext
 from arb.core.domain_loader import DomainLoader
@@ -294,30 +294,32 @@ class BuildPipeline:
                         rendered_experience.append(re_obj)
         
         rendered_awards = []
-        if "awards" in allowed_entities:
+        if "awards" in allowed_entities or raw_profile.awards:
             for awd in raw_profile.awards:
+                bullets = [RenderedBullet(text=f.text, source_fact_ids=[f.id]) for f in awd.facts]
                 rendered_awards.append(RenderedAward(
                     id=awd.id,
                     title=awd.title,
                     event=awd.event,
                     organization=awd.organization,
                     year=awd.year,
-                    bullets=[]
+                    bullets=bullets
                 ))
             
         # Retrieve section_order from policies, or use a default
         resolved_order_policy = plan.policies.policies.get("page_policy") if plan.policies else None
         section_order_dict = plan.policies.policies.get("section_order") if plan.policies else None
-        section_order = section_order_dict.get("order") if (section_order_dict and "order" in section_order_dict) else ["summary", "education", "experience", "projects", "awards", "technical_skills"]
+        section_order = section_order_dict.get("order") if (section_order_dict and "order" in section_order_dict) else ["summary", "education", "awards", "experience", "projects", "technical_skills"]
         page_policy = resolved_order_policy or {"pages": 1}
 
         return ResumeDocument(
-            personal=raw_profile.personal if "personal" in allowed_entities else None,
+            personal=raw_profile.personal,
             education=raw_profile.education if "education" in allowed_entities else [],
             experience=rendered_experience,
             awards=rendered_awards,
             projects=rendered_projects, # Already filtered by target_engine
             skills=raw_profile.skills if "skills" in allowed_entities else {},
+            summary=getattr(raw_profile, "summary", None),
             section_order=section_order,
             page_policy=page_policy
         )

@@ -63,5 +63,7 @@ class ResumeDocument:
     awards: List[RenderedAward]
     projects: List[RenderedProject]
     skills: Dict[str, List[str]]
+    summary: Optional[str] = None
     section_order: List[str] = field(default_factory=list)
     page_policy: Dict[str, Any] = field(default_factory=dict)
+
