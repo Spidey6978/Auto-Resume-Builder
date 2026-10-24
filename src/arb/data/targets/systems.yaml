@@ -1,0 +1,10 @@
+name: "Systems & High Performance Computing Engineer"
+domain: "engineering"
+description: "Systems engineer focusing on high-performance computational simulations, numerical algorithms, Numba, NumPy, C/C++, general relativity raytracing, and distributed task workers."
+rules:
+  projects:
+    exclude: []
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []

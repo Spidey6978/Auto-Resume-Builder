@@ -28,13 +28,23 @@ class TargetLoader:
             return self.resolver.resolve(target_id=os.path.basename(job_path), raw_description=desc, mock_ai=mock_ai)
             
         if target_name:
-            # Look for targets/{target_name}.yaml
-            yaml_path = os.path.join(self.targets_dir, f"{target_name}.yaml")
-            if not os.path.exists(yaml_path):
-                raise FileNotFoundError(f"Target loadout not found: {yaml_path}")
+            if os.path.exists(target_name):
+                yaml_path = target_name
+            else:
+                candidate = os.path.join(self.targets_dir, f"{target_name}.yaml")
+                if os.path.exists(candidate):
+                    yaml_path = candidate
+                else:
+                    from arb.core.paths import get_user_data_dir
+                    user_target = os.path.join(get_user_data_dir(), "targets", f"{target_name}.yaml")
+                    if os.path.exists(user_target):
+                        yaml_path = user_target
+                    else:
+                        raise FileNotFoundError(f"Target loadout not found: {target_name} (checked {candidate})")
                 
             with open(yaml_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
+
                 
             rules_data = data.get("rules", {})
             return self.resolver.resolve(

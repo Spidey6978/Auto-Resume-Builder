@@ -1,0 +1,10 @@
+name: "Blockchain Engineer"
+domain: "engineering"
+description: "Web3 and Smart Contract Engineer focusing on Solidity, Polygon, EVM architectures, smart contract security, and decentralized transaction settlement."
+rules:
+  projects:
+    exclude: []
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []

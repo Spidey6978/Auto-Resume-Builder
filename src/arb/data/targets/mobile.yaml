@@ -1,0 +1,10 @@
+name: "Mobile & Android Developer"
+domain: "engineering"
+description: "Mobile developer building offline-first Android applications with Kotlin, Jetpack Compose, Retrofit 2.9.0, Firebase, and real-time market data pipelines."
+rules:
+  projects:
+    exclude: []
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []

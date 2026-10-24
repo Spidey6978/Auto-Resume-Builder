@@ -1,0 +1,10 @@
+name: "Full Stack Engineer"
+domain: "engineering"
+description: "Full Stack Engineer building responsive frontend client applications and scalable backend services with FastAPI, React, Python, and robust database architectures."
+rules:
+  projects:
+    exclude: []
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []

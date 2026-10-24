@@ -1,0 +1,10 @@
+name: "AI & LLM Systems Engineer"
+domain: "engineering"
+description: "AI engineer specializing in LLM pipeline orchestration, Gemini and Gemma model routing, proof-mode fact verification, and ATS optimization pipelines."
+rules:
+  projects:
+    exclude: []
+    include_only: []
+  experience:
+    exclude: []
+    include_only: []
